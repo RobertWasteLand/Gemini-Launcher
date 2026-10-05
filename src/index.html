@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gemini Launcher</title>
+<link rel="stylesheet" href="style.css">
+<script src="main.js" defer></script>
+</head>
+<body>
+<div class="frame" data-tauri-drag-region>
+  <div class="window-controls">
+    <button id="minimize" type="button" aria-label="Minimize">&#x2013;</button>
+    <button id="close" type="button" aria-label="Close">&#x2715;</button>
+  </div>
+
+  <aside class="panel options">
+    <h2>Options</h2>
+    <div id="option-list" class="option-list"></div>
+  </aside>
+
+  <header class="brand" data-tauri-drag-region>
+    <h1 data-tauri-drag-region>Season Name</h1>
+    <p id="version" data-tauri-drag-region>Launcher</p>
+  </header>
+
+  <section class="panel notes">
+    <h2>Patch Notes</h2>
+    <pre id="notes"></pre>
+  </section>
+
+  <section class="play">
+    <button id="play" type="button" disabled>PLAY</button>
+    <p id="message" class="message"></p>
+    <p class="game-line"><span id="game-path">Looking for Project Zomboid…</span> <button id="locate" type="button" class="link">Locate game</button></p>
+  </section>
+</div>
+</body>
+</html>
