@@ -26,16 +26,23 @@ jobs:
         env:
           HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
-          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
-            echo "::error::v$version is already released. Raise \"version\" in src-tauri/tauri.conf.json, push, then run GL_Release again."
-            exit 1
-          fi
           if [ "$HAS_KEY" != "true" ]; then
             echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is missing. Add it under Settings > Secrets and variables > Actions."
             exit 1
           fi
-          echo "Releasing v$version"
+
+      - name: GL_Release_Version
+        shell: bash
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = "src-tauri/tauri.conf.json";
+          const conf = JSON.parse(fs.readFileSync(path, "utf8"));
+          const [major, minor] = conf.version.split(".");
+          conf.version = `${major}.${minor}.${process.env.GITHUB_RUN_NUMBER}`;
+          fs.writeFileSync(path, JSON.stringify(conf, null, 2) + "\n");
+          console.log(`Build ${conf.version}`);
+          '
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -44,6 +51,14 @@ jobs:
           workspaces: src-tauri
 
       - run: npm ci
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: GL_Bundle
+        run: node GL_Java/GL_Bundle.mjs
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
@@ -54,7 +69,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
-          releaseName: Gemini Launcher v__VERSION__
+          releaseName: Gemini Launcher (build __VERSION__)
           releaseBody: "New here? Download the setup .exe below and run it. Already installed? The launcher updates itself the next time you open it."
           releaseDraft: false
           prerelease: false

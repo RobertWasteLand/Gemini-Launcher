@@ -149,6 +149,31 @@ h2 {
   color: var(--GL_Muted);
 }
 
+.GL_Divider {
+  flex: none;
+  border: none;
+  border-top: 2px solid var(--GL_Line);
+  margin: 4px 0 0;
+}
+
+.GL_Options_List h2 {
+  margin: 0;
+}
+
+.GL_Option_Locked {
+  cursor: default;
+}
+
+.GL_Tag {
+  margin-left: 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--GL_Muted);
+}
+
 .GL_Brand {
   grid-column: 2;
   grid-row: 1;

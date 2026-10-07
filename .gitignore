@@ -1,6 +1,7 @@
 node_modules/
 src-tauri/target/
 src-tauri/gen/
+src-tauri/GL_Bundle/
 
 Thumbs.db
 desktop.ini

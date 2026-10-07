@@ -59,15 +59,12 @@ pub async fn GL_Update_Run(app: AppHandle) {
 
     GL_Update_Claim(&app).await;
     let _ = app.emit(GL_Update_Event, ());
-    let version = update.version.clone();
-    GL_Update_Report(&app, &format!("Downloading v{version}…"));
+    GL_Update_Report(&app, "Downloading update…");
 
     let progress_app = app.clone();
-    let progress_version = version.clone();
     let mut received: u64 = 0;
     let mut shown: Option<u64> = None;
     let finished_app = app.clone();
-    let finished_version = version.clone();
     let result = update
         .download_and_install(
             move |chunk, total| {
@@ -76,18 +73,18 @@ pub async fn GL_Update_Run(app: AppHandle) {
                     let percent = (received * 100 / total).min(100);
                     if shown != Some(percent) {
                         shown = Some(percent);
-                        GL_Update_Report(&progress_app, &format!("Downloading v{progress_version}… {percent}%"));
+                        GL_Update_Report(&progress_app, &format!("Downloading update… {percent}%"));
                     }
                 }
             },
-            move || GL_Update_Report(&finished_app, &format!("Installing v{finished_version}…")),
+            move || GL_Update_Report(&finished_app, "Installing update…"),
         )
         .await;
 
     match result {
         Ok(()) => app.restart(),
         Err(_) => {
-            GL_Update_Report(&app, &format!("Update to v{version} failed. You can still play; it will try again next launch."));
+            GL_Update_Report(&app, "Update failed. You can still play; it will try again next launch.");
             GL_Update_Flag(&app, false);
         }
     }

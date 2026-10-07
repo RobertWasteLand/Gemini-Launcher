@@ -28,6 +28,14 @@ jobs:
 
       - run: npm ci
 
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: GL_Bundle
+        run: node GL_Java/GL_Bundle.mjs
+
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
       - run: npx tauri build --config src-tauri/GL_Build.json

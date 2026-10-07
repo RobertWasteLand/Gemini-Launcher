@@ -2,6 +2,7 @@ const GL_Invoke = window.__TAURI__.core.invoke;
 const GL_Listen = window.__TAURI__.event.listen;
 const GL_Window = window.__TAURI__.window.getCurrentWindow();
 
+const GL_Version_Display = "V1.0.0";
 const GL_Poll_Interval = 4000;
 const GL_Notes_Url = "https://raw.githubusercontent.com/RobertWasteLand/Gemini-Launcher/main/GL_Live/GL_Notes.txt";
 const GL_Notes_Key = "GL_Notes_Cache";
@@ -74,6 +75,45 @@ function GL_Option_Text(option) {
   return text;
 }
 
+function GL_Addon_Row(addon) {
+  const row = document.createElement("label");
+  row.className = addon.required ? "GL_Option GL_Option_Locked" : "GL_Option";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = addon.enabled;
+  box.disabled = addon.required;
+  if (!addon.required) {
+    box.addEventListener("change", () => GL_Option_Save(addon.id, box.checked ? "true" : "false", box));
+  }
+  const text = GL_Option_Text(addon);
+  if (addon.required) {
+    const tag = document.createElement("em");
+    tag.className = "GL_Tag";
+    tag.textContent = "Required";
+    text.firstChild.append(tag);
+  }
+  row.append(box, text);
+  return row;
+}
+
+function GL_Addons_Render(list, addons) {
+  const divider = document.createElement("hr");
+  divider.className = "GL_Divider";
+  const heading = document.createElement("h2");
+  heading.textContent = "Addons";
+  list.append(divider, heading);
+  if (!addons.length) {
+    const empty = document.createElement("p");
+    empty.className = "GL_Empty";
+    empty.textContent = "No addons yet.";
+    list.append(empty);
+    return;
+  }
+  for (const addon of addons) {
+    list.append(GL_Addon_Row(addon));
+  }
+}
+
 function GL_Options_Render(status) {
   const list = GL_Element_Get("GL_Options_List");
   list.replaceChildren();
@@ -82,7 +122,6 @@ function GL_Options_Render(status) {
     empty.className = "GL_Empty";
     empty.textContent = "No options yet.";
     list.append(empty);
-    return;
   }
   for (const option of status.options) {
     list.append(option.kind === "choice" ? GL_Option_Choice(option) : GL_Option_Toggle(option));
@@ -91,13 +130,16 @@ function GL_Options_Render(status) {
   ram.className = "GL_Empty";
   ram.textContent = `This PC has ${status.memoryTotal} GB of RAM.`;
   list.append(ram);
+  GL_Addons_Render(list, status.addons);
 }
 
 function GL_Status_Render(status) {
-  GL_Element_Get("GL_Version_Text").textContent = `Launcher v${status.version}`;
+  const version = GL_Element_Get("GL_Version_Text");
+  version.textContent = `Launcher ${GL_Version_Display}`;
+  version.title = `Build ${status.version}`;
   GL_Element_Get("GL_Update_Text").textContent = status.updateText || "";
 
-  const key = JSON.stringify([status.options, status.memoryTotal]);
+  const key = JSON.stringify([status.options, status.addons, status.memoryTotal]);
   if (key !== GL_Options_Key) {
     GL_Options_Key = key;
     GL_Options_Render(status);
@@ -217,8 +259,8 @@ document.addEventListener("keydown", (event) => {
 
 GL_Listen("GL_Launch_Status", (event) => GL_Message_Set(event.payload));
 GL_Listen("GL_Update_Status", () => GL_Status_Refresh());
-GL_Listen("GL_Game_Exit", () => {
-  GL_Message_Set("Project Zomboid closed.");
+GL_Listen("GL_Game_Exit", (event) => {
+  GL_Message_Set(event.payload || "Project Zomboid closed.");
   GL_Status_Refresh();
 });
 
