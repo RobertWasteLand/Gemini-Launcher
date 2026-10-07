@@ -1,7 +1,6 @@
 {
-  "name": "gemini-launcher",
+  "name": "gl_launcher",
   "private": true,
-  "version": "0.1.0",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build"

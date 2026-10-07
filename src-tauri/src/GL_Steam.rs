@@ -1,20 +1,21 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use crate::vdf;
+use crate::GL_Process::GL_Process_Detach;
+use crate::GL_Vdf::{GL_Vdf_Parse, GL_Vdf_Value};
 
-pub const APP_ID: &str = "108600";
-pub const GAME_EXE: &str = "ProjectZomboid64.exe";
-const DEFAULT_INSTALL_DIR: &str = "ProjectZomboid";
+pub const GL_App_Id: &str = "108600";
+pub const GL_Game_Exe: &str = "ProjectZomboid64.exe";
+const GL_Install_Default: &str = "ProjectZomboid";
 
-pub fn steam_dir() -> Option<PathBuf> {
-    candidates()
+pub fn GL_Steam_Find() -> Option<PathBuf> {
+    GL_Steam_Candidates()
         .into_iter()
         .find(|p| p.join("steamapps").is_dir())
 }
 
 #[cfg(windows)]
-fn candidates() -> Vec<PathBuf> {
+fn GL_Steam_Candidates() -> Vec<PathBuf> {
     use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
     use winreg::RegKey;
 
@@ -37,13 +38,13 @@ fn candidates() -> Vec<PathBuf> {
 }
 
 #[cfg(not(windows))]
-fn candidates() -> Vec<PathBuf> {
+fn GL_Steam_Candidates() -> Vec<PathBuf> {
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
     vec![home.join(".steam/steam"), home.join(".local/share/Steam")]
 }
 
 #[cfg(windows)]
-pub fn signed_in() -> bool {
+pub fn GL_Steam_Signed() -> bool {
     use winreg::enums::HKEY_CURRENT_USER;
     use winreg::RegKey;
 
@@ -55,11 +56,11 @@ pub fn signed_in() -> bool {
 }
 
 #[cfg(not(windows))]
-pub fn signed_in() -> bool {
+pub fn GL_Steam_Signed() -> bool {
     true
 }
 
-pub fn start(steam: &Path) -> std::io::Result<()> {
+pub fn GL_Steam_Start(steam: &Path) -> std::io::Result<()> {
     let exe = steam.join(if cfg!(windows) { "steam.exe" } else { "steam" });
     let mut cmd = Command::new(exe);
     cmd.arg("-silent")
@@ -67,30 +68,30 @@ pub fn start(steam: &Path) -> std::io::Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    crate::game::detach(&mut cmd);
+    GL_Process_Detach(&mut cmd);
     cmd.spawn().map(|_| ())
 }
 
-pub fn parse_library_folders(text: &str) -> Vec<PathBuf> {
-    let root = vdf::parse(text);
-    let Some(folders) = root.get("libraryfolders") else {
+pub fn GL_Steam_Libraries(text: &str) -> Vec<PathBuf> {
+    let root = GL_Vdf_Parse(text);
+    let Some(folders) = root.GL_Get("libraryfolders") else {
         return Vec::new();
     };
     let mut with_app = Vec::new();
     let mut rest = Vec::new();
-    for (key, value) in folders.entries() {
+    for (key, value) in folders.GL_Entries() {
         if key.is_empty() || !key.chars().all(|c| c.is_ascii_digit()) {
             continue;
         }
         match value {
-            vdf::Value::Str(path) => rest.push(PathBuf::from(path)),
-            vdf::Value::Obj(_) => {
-                let Some(path) = value.get("path").and_then(vdf::Value::as_str) else {
+            GL_Vdf_Value::Str(path) => rest.push(PathBuf::from(path)),
+            GL_Vdf_Value::Obj(_) => {
+                let Some(path) = value.GL_Get("path").and_then(GL_Vdf_Value::GL_Text) else {
                     continue;
                 };
                 let has_app = value
-                    .get("apps")
-                    .map(|apps| apps.get(APP_ID).is_some())
+                    .GL_Get("apps")
+                    .map(|apps| apps.GL_Get(GL_App_Id).is_some())
                     .unwrap_or(false);
                 if has_app {
                     with_app.push(PathBuf::from(path));
@@ -104,18 +105,18 @@ pub fn parse_library_folders(text: &str) -> Vec<PathBuf> {
     with_app
 }
 
-pub fn parse_install_dir(text: &str) -> Option<String> {
-    vdf::parse(text)
-        .get("AppState")
-        .and_then(|state| state.get("installdir"))
-        .and_then(vdf::Value::as_str)
+pub fn GL_Steam_Installdir(text: &str) -> Option<String> {
+    GL_Vdf_Parse(text)
+        .GL_Get("AppState")
+        .and_then(|state| state.GL_Get("installdir"))
+        .and_then(GL_Vdf_Value::GL_Text)
         .map(str::to_owned)
 }
 
-fn library_dirs(steam: &Path) -> Vec<PathBuf> {
+fn GL_Steam_Folders(steam: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     if let Ok(text) = std::fs::read_to_string(steam.join("steamapps").join("libraryfolders.vdf")) {
-        out.extend(parse_library_folders(&text));
+        out.extend(GL_Steam_Libraries(&text));
     }
     out.push(steam.to_path_buf());
     let mut seen = Vec::new();
@@ -132,18 +133,18 @@ fn library_dirs(steam: &Path) -> Vec<PathBuf> {
     out
 }
 
-pub fn find_game(steam: &Path) -> Option<PathBuf> {
-    library_dirs(steam).into_iter().find_map(|lib| {
+pub fn GL_Game_Find(steam: &Path) -> Option<PathBuf> {
+    GL_Steam_Folders(steam).into_iter().find_map(|lib| {
         let apps = lib.join("steamapps");
-        let install = std::fs::read_to_string(apps.join(format!("appmanifest_{APP_ID}.acf")))
+        let install = std::fs::read_to_string(apps.join(format!("appmanifest_{GL_App_Id}.acf")))
             .ok()
-            .and_then(|text| parse_install_dir(&text))
-            .unwrap_or_else(|| DEFAULT_INSTALL_DIR.to_owned());
+            .and_then(|text| GL_Steam_Installdir(&text))
+            .unwrap_or_else(|| GL_Install_Default.to_owned());
         let dir = apps.join("common").join(install);
-        is_game_dir(&dir).then_some(dir)
+        GL_Game_Check(&dir).then_some(dir)
     })
 }
 
-pub fn is_game_dir(dir: &Path) -> bool {
-    dir.join(GAME_EXE).is_file()
+pub fn GL_Game_Check(dir: &Path) -> bool {
+    dir.join(GL_Game_Exe).is_file()
 }

@@ -1,18 +1,21 @@
-name: Build
+name: GL_Build
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "GL_Live/**"
+      - "README.md"
   pull_request:
   workflow_dispatch:
 
 jobs:
-  windows:
+  GL_Windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -27,12 +30,12 @@ jobs:
 
       - run: cargo test --manifest-path src-tauri/Cargo.toml
 
-      - run: npx tauri build
+      - run: npx tauri build --config src-tauri/GL_Build.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: gemini-launcher-windows
+          name: GL_Launcher_Windows
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/gemini-launcher.exe
+            src-tauri/target/release/GL_Launcher.exe
           if-no-files-found: error

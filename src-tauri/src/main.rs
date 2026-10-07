@@ -1,14 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 
-mod game;
-mod options;
-mod procs;
-mod settings;
-mod steam;
-mod vdf;
+mod GL_Config;
+mod GL_Options;
+mod GL_Process;
+mod GL_Steam;
+mod GL_Update;
+mod GL_Vdf;
 
 #[cfg(test)]
-mod tests;
+mod GL_Tests;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,19 +20,28 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
-const STEAM_TIMEOUT: Duration = Duration::from_secs(120);
-const STEAM_SETTLE: Duration = Duration::from_secs(3);
+use crate::GL_Options::{GL_Option, GL_Option_Find, GL_Options};
+use crate::GL_Config::GL_Settings;
 
-struct AppState {
+const GL_Steam_Timeout: Duration = Duration::from_secs(120);
+const GL_Steam_Settle: Duration = Duration::from_secs(3);
+const GL_Launch_Event: &str = "GL_Launch_Status";
+const GL_Exit_Event: &str = "GL_Game_Exit";
+const GL_Settings_File: &str = "settings.json";
+const GL_Window_Main: &str = "GL_Main";
+
+pub struct GL_State {
     settings_path: PathBuf,
-    settings: Mutex<settings::Settings>,
-    busy: AtomicBool,
+    settings: Mutex<GL_Settings>,
+    pub busy: AtomicBool,
+    pub updating: AtomicBool,
+    pub update_text: Mutex<Option<String>>,
     child_running: Arc<AtomicBool>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct OptionView {
+struct GL_Option_View {
     id: &'static str,
     label: &'static str,
     description: &'static str,
@@ -40,108 +50,112 @@ struct OptionView {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Status {
+struct GL_Status {
     version: String,
     steam_found: bool,
     steam_ready: bool,
     game_dir: Option<String>,
     game_running: bool,
     busy: bool,
-    options: Vec<OptionView>,
+    updating: bool,
+    update_text: Option<String>,
+    options: Vec<GL_Option_View>,
 }
 
-fn option_enabled(s: &settings::Settings, o: &options::LaunchOption) -> bool {
+fn GL_Option_Enabled(s: &GL_Settings, o: &GL_Option) -> bool {
     s.options.get(o.id).copied().unwrap_or(o.default)
 }
 
-fn resolve_game_dir(s: &settings::Settings) -> Option<PathBuf> {
+fn GL_Game_Dir(s: &GL_Settings) -> Option<PathBuf> {
     if let Some(dir) = &s.game_dir {
-        if steam::is_game_dir(dir) {
+        if GL_Steam::GL_Game_Check(dir) {
             return Some(dir.clone());
         }
     }
-    steam::steam_dir().and_then(|d| steam::find_game(&d))
+    GL_Steam::GL_Steam_Find().and_then(|d| GL_Steam::GL_Game_Find(&d))
 }
 
-fn snapshot(state: &AppState) -> settings::Settings {
+fn GL_Settings_Snapshot(state: &GL_State) -> GL_Settings {
     state.settings.lock().map(|s| s.clone()).unwrap_or_default()
 }
 
-fn build_status(app: &AppHandle) -> Status {
-    let state = app.state::<AppState>();
-    let s = snapshot(&state);
-    Status {
+fn GL_Status_Build(app: &AppHandle) -> GL_Status {
+    let state = app.state::<GL_State>();
+    let s = GL_Settings_Snapshot(&state);
+    GL_Status {
         version: app.package_info().version.to_string(),
-        steam_found: steam::steam_dir().is_some(),
-        steam_ready: procs::steam_ready(),
-        game_dir: resolve_game_dir(&s).map(|p| p.display().to_string()),
-        game_running: state.child_running.load(Ordering::SeqCst) || procs::game_running(),
+        steam_found: GL_Steam::GL_Steam_Find().is_some(),
+        steam_ready: GL_Process::GL_Steam_Ready(),
+        game_dir: GL_Game_Dir(&s).map(|p| p.display().to_string()),
+        game_running: state.child_running.load(Ordering::SeqCst) || GL_Process::GL_Game_Running(),
         busy: state.busy.load(Ordering::SeqCst),
-        options: options::OPTIONS
+        updating: state.updating.load(Ordering::SeqCst),
+        update_text: state.update_text.lock().ok().and_then(|t| t.clone()),
+        options: GL_Options
             .iter()
-            .map(|o| OptionView {
+            .map(|o| GL_Option_View {
                 id: o.id,
                 label: o.label,
                 description: o.description,
-                enabled: option_enabled(&s, o),
+                enabled: GL_Option_Enabled(&s, o),
             })
             .collect(),
     }
 }
 
-fn update_settings(app: &AppHandle, f: impl FnOnce(&mut settings::Settings)) -> Result<(), String> {
-    let state = app.state::<AppState>();
+fn GL_Settings_Change(app: &AppHandle, f: impl FnOnce(&mut GL_Settings)) -> Result<(), String> {
+    let state = app.state::<GL_State>();
     let mut s = state.settings.lock().map_err(|e| e.to_string())?;
     f(&mut s);
-    s.save(&state.settings_path)
+    s.GL_Save(&state.settings_path)
 }
 
-fn say(app: &AppHandle, text: &str) {
-    let _ = app.emit("launch-status", text);
+fn GL_Launch_Report(app: &AppHandle, text: &str) {
+    let _ = app.emit(GL_Launch_Event, text);
 }
 
-fn wait_for_steam(app: &AppHandle) -> Result<(), String> {
-    if procs::steam_ready() {
+fn GL_Steam_Wait(app: &AppHandle) -> Result<(), String> {
+    if GL_Process::GL_Steam_Ready() {
         return Ok(());
     }
-    let steam = steam::steam_dir()
+    let steam = GL_Steam::GL_Steam_Find()
         .ok_or("Steam wasn't found. Install or open Steam, then press Play again.")?;
-    if procs::steam_process_running() {
-        say(app, "Waiting for Steam to sign in…");
+    if GL_Process::GL_Steam_Running() {
+        GL_Launch_Report(app, "Waiting for Steam to sign in…");
     } else {
-        say(app, "Starting Steam…");
-        steam::start(&steam).map_err(|e| format!("Couldn't start Steam: {e}"))?;
+        GL_Launch_Report(app, "Starting Steam…");
+        GL_Steam::GL_Steam_Start(&steam).map_err(|e| format!("Couldn't start Steam: {e}"))?;
     }
-    let deadline = Instant::now() + STEAM_TIMEOUT;
-    while !procs::steam_ready() {
+    let deadline = Instant::now() + GL_Steam_Timeout;
+    while !GL_Process::GL_Steam_Ready() {
         if Instant::now() > deadline {
             return Err("Steam didn't finish starting. Open Steam, sign in, then press Play again.".into());
         }
         std::thread::sleep(Duration::from_secs(1));
     }
-    std::thread::sleep(STEAM_SETTLE);
+    std::thread::sleep(GL_Steam_Settle);
     Ok(())
 }
 
-fn launch(app: &AppHandle) -> Result<(), String> {
-    let state = app.state::<AppState>();
-    if state.child_running.load(Ordering::SeqCst) || procs::game_running() {
+fn GL_Game_Launch(app: &AppHandle) -> Result<(), String> {
+    let state = app.state::<GL_State>();
+    if state.child_running.load(Ordering::SeqCst) || GL_Process::GL_Game_Running() {
         return Err("Project Zomboid is already running.".into());
     }
-    let s = snapshot(&state);
-    let dir = resolve_game_dir(&s)
+    let s = GL_Settings_Snapshot(&state);
+    let dir = GL_Game_Dir(&s)
         .ok_or("Project Zomboid wasn't found. Use Locate game to choose its folder.")?;
-    wait_for_steam(app)?;
+    GL_Steam_Wait(app)?;
 
     let mut jvm = Vec::new();
     let mut game_args = Vec::new();
-    for o in options::OPTIONS.iter().filter(|o| option_enabled(&s, o)) {
+    for o in GL_Options.iter().filter(|o| GL_Option_Enabled(&s, o)) {
         jvm.extend(o.jvm_args.iter().map(|a| a.to_string()));
         game_args.extend(o.game_args.iter().map(|a| a.to_string()));
     }
 
-    say(app, "Launching Project Zomboid…");
-    let mut child = game::spawn(&dir, &game::build_args(&jvm, &game_args))
+    GL_Launch_Report(app, "Launching Project Zomboid…");
+    let mut child = GL_Process::GL_Game_Spawn(&dir, &GL_Process::GL_Game_Args(&jvm, &game_args))
         .map_err(|e| format!("Couldn't start Project Zomboid: {e}"))?;
     state.child_running.store(true, Ordering::SeqCst);
     let flag = state.child_running.clone();
@@ -149,30 +163,30 @@ fn launch(app: &AppHandle) -> Result<(), String> {
     std::thread::spawn(move || {
         let _ = child.wait();
         flag.store(false, Ordering::SeqCst);
-        let _ = handle.emit("game-exited", ());
+        let _ = handle.emit(GL_Exit_Event, ());
     });
-    say(app, "Project Zomboid is starting. Join the server from the in-game menu.");
+    GL_Launch_Report(app, "Project Zomboid is starting. Join the server from the in-game menu.");
     Ok(())
 }
 
 #[tauri::command]
-async fn status(app: AppHandle) -> Result<Status, String> {
-    Ok(build_status(&app))
+async fn GL_Status_Get(app: AppHandle) -> Result<GL_Status, String> {
+    Ok(GL_Status_Build(&app))
 }
 
 #[tauri::command]
-async fn set_option(app: AppHandle, id: String, enabled: bool) -> Result<Status, String> {
-    if options::find(&id).is_none() {
+async fn GL_Option_Set(app: AppHandle, id: String, enabled: bool) -> Result<GL_Status, String> {
+    if GL_Option_Find(&id).is_none() {
         return Err(format!("Unknown option: {id}"));
     }
-    update_settings(&app, |s| {
+    GL_Settings_Change(&app, |s| {
         s.options.insert(id, enabled);
     })?;
-    Ok(build_status(&app))
+    Ok(GL_Status_Build(&app))
 }
 
 #[tauri::command]
-async fn locate_game(app: AppHandle) -> Result<Status, String> {
+async fn GL_Game_Locate(app: AppHandle) -> Result<GL_Status, String> {
     let picked = app
         .dialog()
         .file()
@@ -180,52 +194,63 @@ async fn locate_game(app: AppHandle) -> Result<Status, String> {
         .blocking_pick_folder();
     if let Some(picked) = picked {
         let dir = picked.into_path().map_err(|e| e.to_string())?;
-        if !steam::is_game_dir(&dir) {
-            return Err(format!("{} isn't in that folder.", steam::GAME_EXE));
+        if !GL_Steam::GL_Game_Check(&dir) {
+            return Err(format!("{} isn't in that folder.", GL_Steam::GL_Game_Exe));
         }
-        update_settings(&app, |s| s.game_dir = Some(dir))?;
+        GL_Settings_Change(&app, |s| s.game_dir = Some(dir))?;
     }
-    Ok(build_status(&app))
+    Ok(GL_Status_Build(&app))
 }
 
 #[tauri::command]
-async fn play(app: AppHandle) -> Result<Status, String> {
+async fn GL_Play(app: AppHandle) -> Result<GL_Status, String> {
     let worker = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let state = worker.state::<AppState>();
+        let state = worker.state::<GL_State>();
+        if state.updating.load(Ordering::SeqCst) {
+            return Err("The launcher is updating. Play will be ready in a moment.".to_owned());
+        }
         if state.busy.swap(true, Ordering::SeqCst) {
             return Err("Already launching.".to_owned());
         }
-        let result = launch(&worker);
+        if state.updating.load(Ordering::SeqCst) {
+            state.busy.store(false, Ordering::SeqCst);
+            return Err("The launcher is updating. Play will be ready in a moment.".to_owned());
+        }
+        let result = GL_Game_Launch(&worker);
         state.busy.store(false, Ordering::SeqCst);
         result
     })
     .await
     .map_err(|e| e.to_string())??;
-    Ok(build_status(&app))
+    Ok(GL_Status_Build(&app))
 }
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = app.get_webview_window(GL_Window_Main) {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            let settings_path = app.path().app_config_dir()?.join("settings.json");
-            let settings = settings::Settings::load(&settings_path);
-            app.manage(AppState {
+            let settings_path = app.path().app_config_dir()?.join(GL_Settings_File);
+            let settings = GL_Settings::GL_Load(&settings_path);
+            app.manage(GL_State {
                 settings_path,
                 settings: Mutex::new(settings),
                 busy: AtomicBool::new(false),
+                updating: AtomicBool::new(false),
+                update_text: Mutex::new(None),
                 child_running: Arc::new(AtomicBool::new(false)),
             });
+            tauri::async_runtime::spawn(GL_Update::GL_Update_Run(app.handle().clone()));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![status, set_option, locate_game, play])
+        .invoke_handler(tauri::generate_handler![GL_Status_Get, GL_Option_Set, GL_Game_Locate, GL_Play])
         .run(tauri::generate_context!())
         .expect("Gemini Launcher failed to start");
 }

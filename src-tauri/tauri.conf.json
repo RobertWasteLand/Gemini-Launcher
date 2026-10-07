@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Gemini Launcher",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.robertwasteland.geminilauncher",
   "build": {
     "frontendDist": "../src"
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "label": "main",
+        "label": "GL_Main",
         "title": "Gemini Launcher",
         "width": 1000,
         "height": 600,
@@ -21,12 +21,13 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://raw.githubusercontent.com; img-src 'self' data:; style-src 'self'"
     }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,6 +38,17 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI3MTk2QTcxOUNCQTlDNDIKUldSQ25McWNjV29adDVXYjhEbUtFaTM5Y05RdW91SSs5bVlQcGx1bVdQbmNUWlo1NVFWZHc2TUYK",
+      "endpoints": [
+        "https://github.com/RobertWasteLand/Gemini-Launcher/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }

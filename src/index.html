@@ -3,35 +3,35 @@
 <head>
 <meta charset="utf-8">
 <title>Gemini Launcher</title>
-<link rel="stylesheet" href="style.css">
-<script src="main.js" defer></script>
+<link rel="stylesheet" href="GL_Style.css">
+<script src="GL_Main.js" defer></script>
 </head>
 <body>
-<div class="frame" data-tauri-drag-region>
-  <div class="window-controls">
-    <button id="minimize" type="button" aria-label="Minimize">&#x2013;</button>
-    <button id="close" type="button" aria-label="Close">&#x2715;</button>
+<div class="GL_Frame" data-tauri-drag-region>
+  <div class="GL_Window_Controls">
+    <button id="GL_Window_Minimize" type="button" aria-label="Minimize">&#x2013;</button>
+    <button id="GL_Window_Close" type="button" aria-label="Close">&#x2715;</button>
   </div>
 
-  <aside class="panel options">
+  <aside class="GL_Panel GL_Options">
     <h2>Options</h2>
-    <div id="option-list" class="option-list"></div>
+    <div id="GL_Options_List" class="GL_Options_List"></div>
   </aside>
 
-  <header class="brand" data-tauri-drag-region>
+  <header class="GL_Brand" data-tauri-drag-region>
     <h1 data-tauri-drag-region>Season Name</h1>
-    <p id="version" data-tauri-drag-region>Launcher</p>
+    <p data-tauri-drag-region><span id="GL_Version_Text">Launcher</span> <span id="GL_Update_Text" class="GL_Update"></span></p>
   </header>
 
-  <section class="panel notes">
+  <section class="GL_Panel GL_Notes">
     <h2>Patch Notes</h2>
-    <pre id="notes"></pre>
+    <pre id="GL_Notes_Text">Loading patch notes…</pre>
   </section>
 
-  <section class="play">
-    <button id="play" type="button" disabled>PLAY</button>
-    <p id="message" class="message"></p>
-    <p class="game-line"><span id="game-path">Looking for Project Zomboid…</span> <button id="locate" type="button" class="link">Locate game</button></p>
+  <section class="GL_Play">
+    <button id="GL_Play_Button" type="button" disabled>PLAY</button>
+    <p id="GL_Message_Text" class="GL_Message"></p>
+    <p class="GL_Game_Line"><span id="GL_Game_Path">Looking for Project Zomboid…</span> <button id="GL_Game_Locate" type="button" class="GL_Link">Locate game</button></p>
   </section>
 </div>
 </body>

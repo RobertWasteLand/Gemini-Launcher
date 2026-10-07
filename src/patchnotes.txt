@@ -1,7 +1,0 @@
-v0.1.0
-
-- First test build of the Gemini Launcher.
-- Finds Project Zomboid through your Steam libraries, or lets you pick the folder yourself.
-- Starts Steam for you if it isn't running yet.
-- PLAY starts the game; join the server from the in-game menu as usual.
-- Placeholder look until the real art is ready.

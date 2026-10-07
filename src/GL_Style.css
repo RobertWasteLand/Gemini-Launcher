@@ -1,14 +1,15 @@
 :root {
-  --bg: #d4d4d4;
-  --panel: #bcbcbc;
-  --ink: #1d1d1d;
-  --muted: #555555;
-  --line: #1d1d1d;
-  --button: #1d1d1d;
-  --button-ink: #f2f2f2;
-  --button-off: #8a8a8a;
-  --danger: #b3261e;
-  --close-hover: #c42b1c;
+  --GL_Background: #d4d4d4;
+  --GL_Panel: #bcbcbc;
+  --GL_Ink: #1d1d1d;
+  --GL_Muted: #555555;
+  --GL_Line: #1d1d1d;
+  --GL_Button: #1d1d1d;
+  --GL_Button_Hover: #333333;
+  --GL_Button_Ink: #f2f2f2;
+  --GL_Button_Off: #8a8a8a;
+  --GL_Danger: #b3261e;
+  --GL_Close_Hover: #c42b1c;
 }
 
 * {
@@ -23,8 +24,8 @@ body {
 
 body {
   font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
-  color: var(--ink);
-  background: var(--bg);
+  color: var(--GL_Ink);
+  background: var(--GL_Background);
   overflow: hidden;
   user-select: none;
   cursor: default;
@@ -40,26 +41,26 @@ button:disabled {
   cursor: default;
 }
 
-.frame {
+.GL_Frame {
   position: relative;
   height: 100vh;
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 340px minmax(0, 1fr);
   grid-template-rows: auto 1fr auto;
   column-gap: 24px;
   row-gap: 16px;
   padding: 24px;
-  border: 2px solid var(--line);
+  border: 2px solid var(--GL_Line);
 }
 
-.window-controls {
+.GL_Window_Controls {
   position: absolute;
   top: 0;
   right: 0;
   display: flex;
 }
 
-.window-controls button {
+.GL_Window_Controls button {
   width: 44px;
   height: 32px;
   border: none;
@@ -67,18 +68,18 @@ button:disabled {
   font-size: 15px;
 }
 
-.window-controls button:hover {
+.GL_Window_Controls button:hover {
   background: rgba(0, 0, 0, 0.12);
 }
 
-.window-controls #close:hover {
-  background: var(--close-hover);
+.GL_Window_Controls #GL_Window_Close:hover {
+  background: var(--GL_Close_Hover);
   color: #ffffff;
 }
 
-.panel {
-  background: var(--panel);
-  border: 2px solid var(--line);
+.GL_Panel {
+  background: var(--GL_Panel);
+  border: 2px solid var(--GL_Line);
   padding: 14px 16px;
   min-height: 0;
 }
@@ -91,14 +92,14 @@ h2 {
   margin-bottom: 10px;
 }
 
-.options {
+.GL_Options {
   grid-column: 1;
   grid-row: 1 / 4;
   display: flex;
   flex-direction: column;
 }
 
-.option-list {
+.GL_Options_List {
   flex: 1;
   overflow-y: auto;
   display: flex;
@@ -106,58 +107,62 @@ h2 {
   gap: 10px;
 }
 
-.option {
+.GL_Option {
   display: flex;
   gap: 10px;
   align-items: flex-start;
 }
 
-.option input {
+.GL_Option input {
   margin-top: 3px;
   width: 16px;
   height: 16px;
   flex: none;
 }
 
-.option span {
+.GL_Option span {
   display: flex;
   flex-direction: column;
 }
 
-.option small {
-  color: var(--muted);
+.GL_Option small {
+  color: var(--GL_Muted);
   font-size: 12px;
 }
 
-.empty {
-  color: var(--muted);
+.GL_Empty {
+  color: var(--GL_Muted);
 }
 
-.brand {
+.GL_Brand {
   grid-column: 2;
   grid-row: 1;
   text-align: right;
   padding: 12px 8px 0 0;
 }
 
-.brand h1 {
+.GL_Brand h1 {
   font-size: 34px;
   line-height: 1.1;
   font-weight: 700;
 }
 
-.brand p {
-  color: var(--muted);
+.GL_Brand p {
+  color: var(--GL_Muted);
 }
 
-.notes {
+.GL_Update:not(:empty)::before {
+  content: "· ";
+}
+
+.GL_Notes {
   grid-column: 2;
   grid-row: 2;
   display: flex;
   flex-direction: column;
 }
 
-.notes pre {
+.GL_Notes pre {
   flex: 1;
   overflow-y: auto;
   white-space: pre-wrap;
@@ -166,67 +171,73 @@ h2 {
   cursor: text;
 }
 
-.play {
+.GL_Play {
   grid-column: 2;
   grid-row: 3;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
 
-#play {
+#GL_Play_Button {
   width: 300px;
   height: 64px;
-  border: 2px solid var(--line);
-  background: var(--button);
-  color: var(--button-ink);
+  border: 2px solid var(--GL_Line);
+  background: var(--GL_Button);
+  color: var(--GL_Button_Ink);
   font-size: 24px;
   font-weight: 700;
   letter-spacing: 0.12em;
 }
 
-#play:hover:not(:disabled) {
-  background: #333333;
+#GL_Play_Button:hover:not(:disabled) {
+  background: var(--GL_Button_Hover);
 }
 
-#play:disabled {
-  background: var(--button-off);
+#GL_Play_Button:disabled {
+  background: var(--GL_Button_Off);
 }
 
-.message {
+.GL_Message {
   min-height: 20px;
   text-align: center;
 }
 
-.message.error {
-  color: var(--danger);
+.GL_Message.GL_Error {
+  color: var(--GL_Danger);
 }
 
-.game-line {
+.GL_Game_Line {
   max-width: 100%;
-  color: var(--muted);
+  color: var(--GL_Muted);
   font-size: 12px;
   display: flex;
   gap: 8px;
   white-space: nowrap;
 }
 
-.game-line span {
+.GL_Game_Line span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.link {
+.GL_Game_Line button {
+  flex: none;
+}
+
+.GL_Link {
   border: none;
   background: none;
   padding: 0;
   text-decoration: underline;
   font-size: 12px;
-  color: var(--ink);
+  color: var(--GL_Ink);
 }
 
-.link:disabled {
-  color: var(--muted);
+.GL_Link:disabled {
+  color: var(--GL_Muted);
   text-decoration: none;
 }

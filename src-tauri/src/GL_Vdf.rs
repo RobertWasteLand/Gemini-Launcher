@@ -1,48 +1,48 @@
 #[derive(Debug, Clone, PartialEq)]
-pub enum Value {
+pub enum GL_Vdf_Value {
     Str(String),
-    Obj(Vec<(String, Value)>),
+    Obj(Vec<(String, GL_Vdf_Value)>),
 }
 
-impl Value {
-    pub fn get(&self, key: &str) -> Option<&Value> {
+impl GL_Vdf_Value {
+    pub fn GL_Get(&self, key: &str) -> Option<&GL_Vdf_Value> {
         match self {
-            Value::Obj(items) => items
+            GL_Vdf_Value::Obj(items) => items
                 .iter()
                 .find(|(k, _)| k.eq_ignore_ascii_case(key))
                 .map(|(_, v)| v),
-            Value::Str(_) => None,
+            GL_Vdf_Value::Str(_) => None,
         }
     }
 
-    pub fn as_str(&self) -> Option<&str> {
+    pub fn GL_Text(&self) -> Option<&str> {
         match self {
-            Value::Str(s) => Some(s),
-            Value::Obj(_) => None,
+            GL_Vdf_Value::Str(s) => Some(s),
+            GL_Vdf_Value::Obj(_) => None,
         }
     }
 
-    pub fn entries(&self) -> &[(String, Value)] {
+    pub fn GL_Entries(&self) -> &[(String, GL_Vdf_Value)] {
         match self {
-            Value::Obj(items) => items,
-            Value::Str(_) => &[],
+            GL_Vdf_Value::Obj(items) => items,
+            GL_Vdf_Value::Str(_) => &[],
         }
     }
 }
 
-enum Token {
+enum GL_Vdf_Token {
     Str(String),
     Open,
     Close,
 }
 
-fn tokenize(src: &str) -> Vec<Token> {
+fn GL_Vdf_Tokenize(src: &str) -> Vec<GL_Vdf_Token> {
     let mut out = Vec::new();
     let mut chars = src.chars().peekable();
     while let Some(c) = chars.next() {
         match c {
-            '{' => out.push(Token::Open),
-            '}' => out.push(Token::Close),
+            '{' => out.push(GL_Vdf_Token::Open),
+            '}' => out.push(GL_Vdf_Token::Close),
             '"' => {
                 let mut s = String::new();
                 while let Some(c) = chars.next() {
@@ -57,7 +57,7 @@ fn tokenize(src: &str) -> Vec<Token> {
                         _ => s.push(c),
                     }
                 }
-                out.push(Token::Str(s));
+                out.push(GL_Vdf_Token::Str(s));
             }
             '/' if chars.peek() == Some(&'/') => {
                 for c in chars.by_ref() {
@@ -76,39 +76,39 @@ fn tokenize(src: &str) -> Vec<Token> {
                     s.push(n);
                     chars.next();
                 }
-                out.push(Token::Str(s));
+                out.push(GL_Vdf_Token::Str(s));
             }
         }
     }
     out
 }
 
-pub fn parse(src: &str) -> Value {
-    let tokens = tokenize(src);
+pub fn GL_Vdf_Parse(src: &str) -> GL_Vdf_Value {
+    let tokens = GL_Vdf_Tokenize(src);
     let mut pos = 0;
-    Value::Obj(parse_obj(&tokens, &mut pos))
+    GL_Vdf_Value::Obj(GL_Vdf_Object(&tokens, &mut pos))
 }
 
-fn parse_obj(tokens: &[Token], pos: &mut usize) -> Vec<(String, Value)> {
+fn GL_Vdf_Object(tokens: &[GL_Vdf_Token], pos: &mut usize) -> Vec<(String, GL_Vdf_Value)> {
     let mut items = Vec::new();
     while *pos < tokens.len() {
         match &tokens[*pos] {
-            Token::Close => {
+            GL_Vdf_Token::Close => {
                 *pos += 1;
                 break;
             }
-            Token::Open => *pos += 1,
-            Token::Str(key) => {
+            GL_Vdf_Token::Open => *pos += 1,
+            GL_Vdf_Token::Str(key) => {
                 let key = key.clone();
                 *pos += 1;
                 match tokens.get(*pos) {
-                    Some(Token::Open) => {
+                    Some(GL_Vdf_Token::Open) => {
                         *pos += 1;
-                        let value = parse_obj(tokens, pos);
-                        items.push((key, Value::Obj(value)));
+                        let value = GL_Vdf_Object(tokens, pos);
+                        items.push((key, GL_Vdf_Value::Obj(value)));
                     }
-                    Some(Token::Str(value)) => {
-                        items.push((key, Value::Str(value.clone())));
+                    Some(GL_Vdf_Token::Str(value)) => {
+                        items.push((key, GL_Vdf_Value::Str(value.clone())));
                         *pos += 1;
                     }
                     _ => break,
