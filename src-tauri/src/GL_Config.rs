@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[serde(default)]
 pub struct GL_Settings {
     pub game_dir: Option<PathBuf>,
-    pub options: BTreeMap<String, bool>,
+    pub options: BTreeMap<String, String>,
 }
 
 impl GL_Settings {
@@ -25,4 +25,9 @@ impl GL_Settings {
         let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         std::fs::write(path, text).map_err(|e| e.to_string())
     }
+}
+
+pub fn GL_Console_Path() -> Option<PathBuf> {
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?;
+    Some(PathBuf::from(home).join("Zomboid").join("console.txt"))
 }

@@ -20,55 +20,87 @@ function GL_Message_Set(text, isError = false) {
   message.classList.toggle("GL_Error", isError);
 }
 
-function GL_Options_Render(options) {
+async function GL_Option_Save(id, value, control) {
+  control.disabled = true;
+  try {
+    GL_Status_Render(await GL_Invoke("GL_Option_Set", { id, value }));
+  } catch (error) {
+    GL_Message_Set(String(error), true);
+    await GL_Status_Refresh();
+  } finally {
+    control.disabled = false;
+  }
+}
+
+function GL_Option_Toggle(option) {
+  const row = document.createElement("label");
+  row.className = "GL_Option";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = option.value === "true";
+  box.addEventListener("change", () => GL_Option_Save(option.id, box.checked ? "true" : "false", box));
+  row.append(box, GL_Option_Text(option));
+  return row;
+}
+
+function GL_Option_Choice(option) {
+  const row = document.createElement("div");
+  row.className = "GL_Option GL_Option_Choice";
+  const select = document.createElement("select");
+  select.className = "GL_Select";
+  select.setAttribute("aria-label", option.label);
+  for (const choice of option.choices) {
+    const item = document.createElement("option");
+    item.value = choice.value;
+    item.textContent = choice.label;
+    select.append(item);
+  }
+  select.value = option.value;
+  select.addEventListener("change", () => GL_Option_Save(option.id, select.value, select));
+  row.append(GL_Option_Text(option), select);
+  return row;
+}
+
+function GL_Option_Text(option) {
+  const text = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = option.label;
+  text.append(name);
+  if (option.description) {
+    const description = document.createElement("small");
+    description.textContent = option.description;
+    text.append(description);
+  }
+  return text;
+}
+
+function GL_Options_Render(status) {
   const list = GL_Element_Get("GL_Options_List");
   list.replaceChildren();
-  if (!options.length) {
+  if (!status.options.length) {
     const empty = document.createElement("p");
     empty.className = "GL_Empty";
     empty.textContent = "No options yet.";
     list.append(empty);
     return;
   }
-  for (const option of options) {
-    const row = document.createElement("label");
-    row.className = "GL_Option";
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = option.enabled;
-    box.addEventListener("change", async () => {
-      box.disabled = true;
-      try {
-        GL_Status_Render(await GL_Invoke("GL_Option_Set", { id: option.id, enabled: box.checked }));
-      } catch (error) {
-        box.checked = !box.checked;
-        GL_Message_Set(String(error), true);
-      } finally {
-        box.disabled = false;
-      }
-    });
-    const text = document.createElement("span");
-    const name = document.createElement("strong");
-    name.textContent = option.label;
-    text.append(name);
-    if (option.description) {
-      const description = document.createElement("small");
-      description.textContent = option.description;
-      text.append(description);
-    }
-    row.append(box, text);
-    list.append(row);
+  for (const option of status.options) {
+    list.append(option.kind === "choice" ? GL_Option_Choice(option) : GL_Option_Toggle(option));
   }
+  const ram = document.createElement("p");
+  ram.className = "GL_Empty";
+  ram.textContent = `This PC has ${status.memoryTotal} GB of RAM.`;
+  list.append(ram);
 }
 
 function GL_Status_Render(status) {
   GL_Element_Get("GL_Version_Text").textContent = `Launcher v${status.version}`;
   GL_Element_Get("GL_Update_Text").textContent = status.updateText || "";
 
-  const key = JSON.stringify(status.options);
+  const key = JSON.stringify([status.options, status.memoryTotal]);
   if (key !== GL_Options_Key) {
     GL_Options_Key = key;
-    GL_Options_Render(status.options);
+    GL_Options_Render(status);
   }
 
   const play = GL_Element_Get("GL_Play_Button");

@@ -68,7 +68,7 @@ pub fn GL_Steam_Start(steam: &Path) -> std::io::Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    GL_Process_Detach(&mut cmd);
+    GL_Process_Detach(&mut cmd, false);
     cmd.spawn().map(|_| ())
 }
 

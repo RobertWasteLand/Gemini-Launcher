@@ -37,17 +37,19 @@ pub fn GL_Game_Args(jvm: &[String], game: &[String]) -> Vec<String> {
 }
 
 #[cfg(windows)]
-pub fn GL_Process_Detach(cmd: &mut Command) {
+pub fn GL_Process_Detach(cmd: &mut Command, priority: bool) {
     use std::os::windows::process::CommandExt;
     const GL_Flag_Detached: u32 = 0x0000_0008;
     const GL_Flag_Group: u32 = 0x0000_0200;
-    cmd.creation_flags(GL_Flag_Detached | GL_Flag_Group);
+    const GL_Flag_Priority: u32 = 0x0000_8000;
+    let flags = GL_Flag_Detached | GL_Flag_Group | if priority { GL_Flag_Priority } else { 0 };
+    cmd.creation_flags(flags);
 }
 
 #[cfg(not(windows))]
-pub fn GL_Process_Detach(_cmd: &mut Command) {}
+pub fn GL_Process_Detach(_cmd: &mut Command, _priority: bool) {}
 
-pub fn GL_Game_Spawn(dir: &Path, args: &[String]) -> std::io::Result<Child> {
+pub fn GL_Game_Spawn(dir: &Path, args: &[String], priority: bool) -> std::io::Result<Child> {
     let mut cmd = Command::new(dir.join(GL_Game_Exe));
     cmd.current_dir(dir)
         .args(args)
@@ -55,6 +57,6 @@ pub fn GL_Game_Spawn(dir: &Path, args: &[String]) -> std::io::Result<Child> {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    GL_Process_Detach(&mut cmd);
+    GL_Process_Detach(&mut cmd, priority);
     cmd.spawn()
 }
