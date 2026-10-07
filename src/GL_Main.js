@@ -260,10 +260,15 @@ document.addEventListener("keydown", (event) => {
 GL_Listen("GL_Launch_Status", (event) => GL_Message_Set(event.payload));
 GL_Listen("GL_Update_Status", () => GL_Status_Refresh());
 GL_Listen("GL_Game_Exit", (event) => {
-  GL_Message_Set(event.payload || "Project Zomboid closed.");
+  GL_Message_Set(event.payload);
   GL_Status_Refresh();
 });
 
 GL_Notes_Load();
 GL_Status_Refresh();
-setInterval(GL_Status_Refresh, GL_Poll_Interval);
+window.addEventListener("focus", GL_Status_Refresh);
+setInterval(() => {
+  if (document.hasFocus()) {
+    GL_Status_Refresh();
+  }
+}, GL_Poll_Interval);

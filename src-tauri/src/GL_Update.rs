@@ -6,16 +6,20 @@ use tauri_plugin_updater::UpdaterExt;
 
 use crate::GL_State;
 
-pub const GL_Update_Event: &str = "GL_Update_Status";
+const GL_Update_Event: &str = "GL_Update_Status";
 const GL_Update_Timeout: Duration = Duration::from_secs(20);
 const GL_Update_Poll: Duration = Duration::from_millis(500);
 
-fn GL_Update_Report(app: &AppHandle, text: &str) {
+fn GL_Update_Text(app: &AppHandle, text: Option<&str>) {
     let state = app.state::<GL_State>();
     if let Ok(mut slot) = state.update_text.lock() {
-        *slot = Some(text.to_owned());
+        *slot = text.map(str::to_owned);
     }
-    let _ = app.emit(GL_Update_Event, text);
+    let _ = app.emit(GL_Update_Event, ());
+}
+
+fn GL_Update_Report(app: &AppHandle, text: &str) {
+    GL_Update_Text(app, Some(text));
 }
 
 fn GL_Update_Flag(app: &AppHandle, on: bool) {
@@ -37,7 +41,6 @@ async fn GL_Update_Claim(app: &AppHandle) {
 
 pub async fn GL_Update_Run(app: AppHandle) {
     if cfg!(debug_assertions) {
-        GL_Update_Report(&app, "Updates are off in dev builds");
         return;
     }
     GL_Update_Report(&app, "Checking for updates…");
@@ -48,7 +51,7 @@ pub async fn GL_Update_Run(app: AppHandle) {
     let update = match checked {
         Ok(Some(update)) => update,
         Ok(None) => {
-            GL_Update_Report(&app, "Up to date");
+            GL_Update_Text(&app, None);
             return;
         }
         Err(_) => {
@@ -58,7 +61,6 @@ pub async fn GL_Update_Run(app: AppHandle) {
     };
 
     GL_Update_Claim(&app).await;
-    let _ = app.emit(GL_Update_Event, ());
     GL_Update_Report(&app, "Downloading update…");
 
     let progress_app = app.clone();
