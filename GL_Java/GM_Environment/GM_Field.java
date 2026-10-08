@@ -80,6 +80,7 @@ final class GM_Field {
     private static int GM_Loc_On = -1;
     private static int GM_Loc_Toon = -1;
     private static int GM_Loc_Tile = -1;
+    private static int GM_Loc_Quad = -1;
 
     private GM_Field() {
     }
@@ -341,6 +342,7 @@ final class GM_Field {
             GM_Loc_On = GL20.glGetUniformLocation(program, "GM_FieldOn");
             GM_Loc_Toon = GL20.glGetUniformLocation(program, "GM_Toon");
             GM_Loc_Tile = GL20.glGetUniformLocation(program, "GM_TileScale");
+            GM_Loc_Quad = GL20.glGetUniformLocation(program, "GM_ShoreQuad");
         }
         if (GM_Loc_On < 0) {
             return;
@@ -377,6 +379,16 @@ final class GM_Field {
         if (GM_Loc_Tile >= 0) {
             GL20.glUniform1f(GM_Loc_Tile, Core.tileScale);
         }
+    }
+
+    static void GM_Quad(boolean shore) {
+        if (GM_Loc_Quad < 0 || GM_Loc_On < 0) {
+            return;
+        }
+        if (GL11.glGetInteger(GL_CURRENT_PROGRAM) != GM_Program) {
+            return;
+        }
+        GL20.glUniform1f(GM_Loc_Quad, shore ? 1.0f : -1.0f);
     }
 
     private static int GM_Texture_Bind(int texture) {

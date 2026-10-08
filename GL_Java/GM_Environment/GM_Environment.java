@@ -138,6 +138,17 @@ public final class GM_Environment {
         }
     }
 
+    public static void GM_Shore_Quad(boolean shore) {
+        if (GM_Failed) {
+            return;
+        }
+        try {
+            GM_Field.GM_Quad(shore);
+        } catch (Throwable t) {
+            GM_Fail("shore batch flag failed", t);
+        }
+    }
+
     public static IsoWaterGeometry GM_Shore_Init(Object self, IsoGridSquare square, IsoWaterGeometry result) {
         if (GM_Failed) {
             return result;
