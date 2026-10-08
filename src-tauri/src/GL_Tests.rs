@@ -9,7 +9,7 @@ use crate::GL_Buddy::{
 };
 use crate::GL_Config::{GL_App_Identifier, GL_Settings};
 use crate::GL_Memory::{GL_Memory_Auto, GL_Memory_Choices, GL_Memory_Limit, GL_Memory_Match, GL_Memory_Parse, GL_Memory_Resolve};
-use crate::GL_Options::{GL_Launch_Build, GL_Option_Memory, GL_Option_Priority};
+use crate::GL_Options::{GL_Arg_Debug, GL_Launch_Build, GL_Option_Debug, GL_Option_Memory, GL_Option_Priority};
 use crate::GL_Process::GL_Game_Args;
 use crate::GL_Steam::{GL_Steam_Installdir, GL_Steam_Libraries};
 use crate::GL_Vdf::{GL_Vdf_Parse, GL_Vdf_Value};
@@ -143,13 +143,17 @@ fn GL_Test_Launch_Plan() {
     let mut settings = GL_Settings::default();
     let plan = GL_Launch_Build(&settings, 32);
     assert_eq!(plan.jvm, vec!["-Xmx10g"]);
+    assert!(plan.game.is_empty());
     assert!(!plan.priority);
     settings.options.insert(GL_Option_Memory.to_owned(), "16".to_owned());
     settings.options.insert(GL_Option_Priority.to_owned(), "true".to_owned());
+    settings.options.insert(GL_Option_Debug.to_owned(), "true".to_owned());
     let plan = GL_Launch_Build(&settings, 16);
     assert_eq!(plan.jvm, vec!["-Xmx6g"]);
+    assert_eq!(plan.game, vec![GL_Arg_Debug]);
     assert_eq!(plan.memory, 6);
     assert!(plan.priority);
+    assert_eq!(GL_Game_Args(&plan.jvm, &plan.game), vec!["-Xmx6g", "--", "-debug"]);
 }
 
 const GL_Sample_Json: &str = r#"{"mainClass":"zombie/gameStates/MainScreenState","classpath":[".","projectzomboid.jar"],"vmArgs":["-Xmx3072m"]}"#;
