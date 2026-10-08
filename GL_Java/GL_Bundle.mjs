@@ -9,6 +9,7 @@ const GL_Source = join(GL_Root, "GL_Java");
 const GL_Bundle = join(GL_Root, "src-tauri", "GL_Bundle");
 const GL_Addons = join(GL_Bundle, "GL_Java");
 const GL_Work = join(GL_Root, "src-tauri", "target", "GL_Java");
+const GL_Stubs = "GL_Stubs";
 const GL_Release = "17";
 const GL_License = "ZombieBuddy_LICENSE.txt";
 const GL_Date = "2026-01-01T00:00:00Z";
@@ -71,7 +72,7 @@ function GL_Sources_List(dir) {
   return out;
 }
 
-function GL_Addon_Build(name) {
+function GL_Java_Compile(name, classpath) {
   const sources = GL_Sources_List(join(GL_Source, name));
   if (!sources.length) {
     throw new Error(`${name}: no .java files`);
@@ -81,9 +82,21 @@ function GL_Addon_Build(name) {
   mkdirSync(classes, { recursive: true });
   execFileSync(
     GL_Tool_Path("javac"),
-    ["--release", GL_Release, "-encoding", "UTF-8", "-nowarn", "-cp", join(GL_Bundle, "ZombieBuddy.jar"), "-d", classes, ...sources],
+    ["--release", GL_Release, "-encoding", "UTF-8", "-nowarn", "-cp", classpath, "-d", classes, ...sources],
     { stdio: "inherit" },
   );
+  return classes;
+}
+
+function GL_Stubs_Build() {
+  const classes = GL_Java_Compile(GL_Stubs, join(GL_Bundle, "ZombieBuddy.jar"));
+  console.log(`${GL_Stubs}: compiled`);
+  return classes;
+}
+
+function GL_Addon_Build(name, stubs) {
+  const classpath = [join(GL_Bundle, "ZombieBuddy.jar"), stubs].join(process.platform === "win32" ? ";" : ":");
+  const classes = GL_Java_Compile(name, classpath);
   const jar = join(GL_Addons, `${name}.jar`);
   execFileSync(GL_Tool_Path("jar"), ["--create", "--date", GL_Date, "--file", jar, "-C", classes, "."], { stdio: "inherit" });
   console.log(`${name}.jar: built (${GL_Hash_Get(readFileSync(jar))})`);
@@ -96,10 +109,11 @@ for (const file of GL_Pinned) {
 copyFileSync(join(GL_Source, GL_License), join(GL_Bundle, GL_License));
 rmSync(GL_Addons, { recursive: true, force: true });
 mkdirSync(GL_Addons, { recursive: true });
+const GL_Stub_Classes = GL_Stubs_Build();
 const GL_Names = readdirSync(GL_Source, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && entry.name.startsWith("GL_"))
+  .filter((entry) => entry.isDirectory() && /^G[A-Z]_/.test(entry.name) && entry.name !== GL_Stubs)
   .map((entry) => entry.name)
   .sort();
 for (const name of GL_Names) {
-  GL_Addon_Build(name);
+  GL_Addon_Build(name, GL_Stub_Classes);
 }

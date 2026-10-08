@@ -21,6 +21,8 @@ Edit `GL_Live/GL_Notes.txt` and push. Every launcher shows the new notes within 
 
 Each addon is a folder of Java patches in `GL_Java/` (for example `GL_Java/GL_Core/`) plus one entry in `src-tauri/src/GL_Addons.rs`. They load through [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) by zed-0xff (MIT), and only when started from the launcher.
 
+Addons that belong to the mod pack use the pack's `GM_` prefix (`GL_Java/GM_Environment/` drives the `GM_Environment` mod's water). `GL_Java/GL_Stubs/` holds empty copies of the game classes the addons call, so they compile without the game installed; it is never shipped.
+
 ## Naming
 
 Everything in the code is named `GL_<Name>_<Extra>`, for example `GL_Steam_Find`.

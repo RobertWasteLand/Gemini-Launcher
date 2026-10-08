@@ -13,13 +13,22 @@ pub struct GL_Addon {
     pub default: bool,
 }
 
-pub const GL_Addons: &[GL_Addon] = &[GL_Addon {
-    id: "GL_Core",
-    label: "Gemini Core",
-    description: "Gemini's own Java patches. Always on.",
-    required: true,
-    default: true,
-}];
+pub const GL_Addons: &[GL_Addon] = &[
+    GL_Addon {
+        id: "GL_Core",
+        label: "Gemini Core",
+        description: "Gemini's own Java patches. Always on.",
+        required: true,
+        default: true,
+    },
+    GL_Addon {
+        id: "GM_Environment",
+        label: "Environment",
+        description: "Gemini's water: waves, breakers, beach swash. Off = the game's own water.",
+        required: false,
+        default: true,
+    },
+];
 
 pub fn GL_Addon_Find(id: &str) -> Option<&'static GL_Addon> {
     GL_Addons.iter().find(|a| a.id == id)
