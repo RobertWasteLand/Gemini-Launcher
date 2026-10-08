@@ -6,7 +6,9 @@ import zombie.core.opengl.RenderThread;
 import zombie.debug.DebugLog;
 import zombie.debug.DebugOptions;
 import zombie.debug.DebugType;
+import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWater;
+import zombie.iso.IsoWaterGeometry;
 import zombie.iso.WaterShader;
 
 public final class GM_Environment {
@@ -133,6 +135,18 @@ public final class GM_Environment {
             GM_Field.GM_Bind(GM_Toon_Default);
         } catch (Throwable t) {
             GM_Fail("shader uniforms failed", t);
+        }
+    }
+
+    public static IsoWaterGeometry GM_Shore_Init(Object self, IsoGridSquare square, IsoWaterGeometry result) {
+        if (GM_Failed) {
+            return result;
+        }
+        try {
+            return GM_Shore.GM_Init_Exit(self, square, result);
+        } catch (Throwable t) {
+            GM_Fail("extra shore tiles failed", t);
+            return result;
         }
     }
 }

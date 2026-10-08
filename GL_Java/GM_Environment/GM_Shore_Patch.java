@@ -11,6 +11,6 @@ public final class GM_Shore_Patch {
 
     @Patch.OnExit
     public static void GM_Exit(@Patch.This Object self, @Patch.Argument(0) IsoGridSquare square, @Patch.Return(readOnly = false) IsoWaterGeometry result) {
-        result = GM_Shore.GM_Init_Exit(self, square, result);
+        result = GM_Environment.GM_Shore_Init(self, square, result);
     }
 }
