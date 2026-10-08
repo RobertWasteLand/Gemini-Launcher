@@ -10,5 +10,6 @@ public final class GM_Environment_Patch {
     @Patch.OnEnter
     public static void GM_Enter() {
         GM_Environment.GM_Marker_Print();
+        GM_Environment.GM_World_Reset();
     }
 }

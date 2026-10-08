@@ -1,18 +1,23 @@
 package GL_Java.GM_Environment;
 
+import zombie.ZomboidFileSystem;
 import zombie.core.PerformanceSettings;
 import zombie.core.opengl.RenderThread;
+import zombie.debug.DebugLog;
 import zombie.debug.DebugOptions;
+import zombie.debug.DebugType;
 import zombie.iso.IsoWater;
 import zombie.iso.WaterShader;
 
 public final class GM_Environment {
     static final String GM_Shader_High = "GM_Environment/GM_Water_hq";
     static final String GM_Shader_Medium = "GM_Environment/GM_Water";
+    static final String GM_Shader_Check = "media/shaders/GM_Environment/GM_Water_hq.frag";
     static final float GM_Toon_Default = 0.55f;
 
     public static volatile Object GM_ShoreFade;
     private static volatile boolean GM_Failed;
+    private static volatile boolean GM_Missing;
     private static boolean GM_Shown;
     private static Object GM_Effect;
     private static int GM_Effect_Quality = -1;
@@ -41,6 +46,10 @@ public final class GM_Environment {
         return GM_Failed;
     }
 
+    public static void GM_World_Reset() {
+        GM_Missing = false;
+    }
+
     private static void GM_ShoreFade_Find() {
         if (GM_ShoreFade != null) {
             return;
@@ -53,7 +62,7 @@ public final class GM_Environment {
     }
 
     public static void GM_Water_Check(Object self) {
-        if (GM_Failed || !(self instanceof IsoWater)) {
+        if (GM_Failed || GM_Missing || !(self instanceof IsoWater)) {
             return;
         }
         try {
@@ -63,6 +72,11 @@ public final class GM_Environment {
             }
             int quality = PerformanceSettings.waterQuality;
             if (water.effect == GM_Effect && quality == GM_Effect_Quality) {
+                return;
+            }
+            if (!ZomboidFileSystem.instance.isKnownFile(GM_Shader_Check)) {
+                GM_Missing = true;
+                System.out.println("[GL_Java] GM_Environment off for this world: the GM_Environment mod is not enabled, so its water shaders are not loaded");
                 return;
             }
             GM_ShoreFade_Find();
@@ -75,8 +89,18 @@ public final class GM_Environment {
     private static void GM_Water_Install(IsoWater water, int quality) {
         try {
             WaterShader shader = new WaterShader(quality == 0 ? GM_Shader_High : GM_Shader_Medium);
-            shader.Start();
-            shader.End();
+            boolean logging = DebugLog.isEnabled(DebugType.Shader);
+            if (!logging) {
+                DebugLog.setLogEnabled(DebugType.Shader, true);
+            }
+            try {
+                shader.Start();
+                shader.End();
+            } finally {
+                if (!logging) {
+                    DebugLog.setLogEnabled(DebugType.Shader, false);
+                }
+            }
             if (!shader.isCompiled()) {
                 GM_Fail("water shader did not compile, keeping the game's water", new IllegalStateException(quality == 0 ? GM_Shader_High : GM_Shader_Medium));
                 return;
