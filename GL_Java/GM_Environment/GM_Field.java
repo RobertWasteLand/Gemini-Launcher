@@ -64,6 +64,8 @@ final class GM_Field {
     private static final float[] GM_Corner = new float[GM_Size * GM_Size];
     private static final float[] GM_Scratch = new float[GM_Size * GM_Size];
     private static final float[] GM_Fetch = new float[GM_Size * GM_Size];
+    private static final float[] GM_Land = new float[GM_Size * GM_Size];
+    static final float GM_Near_Range = 7.0f;
     private static int GM_Ticks;
     private static int GM_Built_Tick = Integer.MIN_VALUE;
     private static float GM_Center_X;
@@ -248,6 +250,50 @@ final class GM_Field {
                 f[j * s + i] = m;
             }
         }
+        float[] land = GM_Land;
+        for (int k = 0; k < s * s; k++) {
+            land[k] = d[k] == 0.0f ? far : 0.0f;
+        }
+        for (int j = 0; j < s; j++) {
+            for (int i = 0; i < s; i++) {
+                int k = j * s + i;
+                if (land[k] == 0.0f) {
+                    continue;
+                }
+                if (i > 0) {
+                    land[k] = Math.min(land[k], land[k - 1] + 1.0f);
+                }
+                if (j > 0) {
+                    land[k] = Math.min(land[k], land[k - s] + 1.0f);
+                    if (i > 0) {
+                        land[k] = Math.min(land[k], land[k - s - 1] + 1.4142f);
+                    }
+                    if (i < s - 1) {
+                        land[k] = Math.min(land[k], land[k - s + 1] + 1.4142f);
+                    }
+                }
+            }
+        }
+        for (int j = s - 1; j >= 0; j--) {
+            for (int i = s - 1; i >= 0; i--) {
+                int k = j * s + i;
+                if (land[k] == 0.0f) {
+                    continue;
+                }
+                if (i < s - 1) {
+                    land[k] = Math.min(land[k], land[k + 1] + 1.0f);
+                }
+                if (j < s - 1) {
+                    land[k] = Math.min(land[k], land[k + s] + 1.0f);
+                    if (i < s - 1) {
+                        land[k] = Math.min(land[k], land[k + s + 1] + 1.4142f);
+                    }
+                    if (i > 0) {
+                        land[k] = Math.min(land[k], land[k + s - 1] + 1.4142f);
+                    }
+                }
+            }
+        }
         ByteBuffer pixels = GM_Buffers[GM_Buffer_Next];
         ByteBuffer bank = GM_Bank_Buffers[GM_Buffer_Next];
         if (pixels == null) {
@@ -266,7 +312,23 @@ final class GM_Field {
                 float fetch = Math.min(f[k], GM_Range) / GM_Range;
                 pixels.put((byte) Math.round(dist * 255.0f));
                 pixels.put((byte) Math.round(fetch * 255.0f));
-                pixels.put((byte) 0);
+                float near = 0.0f;
+                int cornerN = 0;
+                for (int dj = -1; dj <= 0; dj++) {
+                    int tj = j + dj;
+                    if (tj < 0 || tj >= s) {
+                        continue;
+                    }
+                    for (int di = -1; di <= 0; di++) {
+                        int ti = i + di;
+                        if (ti < 0 || ti >= s) {
+                            continue;
+                        }
+                        near += Math.max(0.0f, 1.0f - Math.min(land[tj * s + ti], GM_Near_Range) / GM_Near_Range);
+                        cornerN++;
+                    }
+                }
+                pixels.put((byte) Math.round((cornerN > 0 ? near / cornerN : 0.0f) * 255.0f));
                 pixels.put((byte) 255);
                 float red = 0.0f;
                 float green = 0.0f;
@@ -347,22 +409,7 @@ final class GM_Field {
         if (GM_Loc_On < 0) {
             return;
         }
-        GM_Data pending = GM_Pending.getAndSet(null);
-        int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit);
-        GM_Texture = GM_Texture_Bind(GM_Texture);
-        if (pending != null) {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.pixels);
-        }
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Bank);
-        GM_Texture_Bank = GM_Texture_Bind(GM_Texture_Bank);
-        if (pending != null) {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.bank);
-            GM_Current = pending;
-        }
-        Texture.lastTextureID = -1;
-        GL13.glActiveTexture(unit);
-        GM_Data current = GM_Current;
+        GM_Data current = GM_Upload(GM_Unit, GM_Unit_Bank);
         if (GM_Loc_Field >= 0) {
             GL20.glUniform1i(GM_Loc_Field, GM_Unit);
         }
@@ -379,6 +426,25 @@ final class GM_Field {
         if (GM_Loc_Tile >= 0) {
             GL20.glUniform1f(GM_Loc_Tile, Core.tileScale);
         }
+    }
+
+    static GM_Data GM_Upload(int unitField, int unitBank) {
+        GM_Data pending = GM_Pending.getAndSet(null);
+        int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
+        GL13.glActiveTexture(GL_TEXTURE0 + unitField);
+        GM_Texture = GM_Texture_Bind(GM_Texture);
+        if (pending != null) {
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.pixels);
+        }
+        GL13.glActiveTexture(GL_TEXTURE0 + unitBank);
+        GM_Texture_Bank = GM_Texture_Bind(GM_Texture_Bank);
+        if (pending != null) {
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.bank);
+            GM_Current = pending;
+        }
+        Texture.lastTextureID = -1;
+        GL13.glActiveTexture(unit);
+        return GM_Current;
     }
 
     static void GM_Quad(boolean shore) {

@@ -50,6 +50,7 @@ public final class GM_Environment {
 
     public static void GM_World_Reset() {
         GM_Missing = false;
+        GM_Shaders.GM_World_Reset();
     }
 
     private static void GM_ShoreFade_Find() {
@@ -157,6 +158,73 @@ public final class GM_Environment {
             return GM_Shore.GM_Init_Exit(self, square, result);
         } catch (Throwable t) {
             GM_Fail("extra shore tiles failed", t);
+            return result;
+        }
+    }
+
+    public static void GM_Screen_Check() {
+        if (GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Shaders.GM_Check();
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("screen shader check failed", t);
+        }
+    }
+
+    public static void GM_Screen_Queue() {
+        if (GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Shaders.GM_Queue();
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("frame data failed", t);
+        }
+    }
+
+    public static void GM_Screen_Mark(Object self, Object draw, int player) {
+        if (GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Shaders.GM_Mark(self, draw, player);
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("frame mark failed", t);
+        }
+    }
+
+    public static void GM_Screen_Bind(Object self, Object draw) {
+        if (GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Shaders.GM_Bind(self, draw);
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("screen uniforms failed", t);
+        }
+    }
+
+    public static void GM_Water_Depth(boolean shore, int count) {
+        if (GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Shaders.GM_Water_Depth(shore, count);
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("water depth failed", t);
+        }
+    }
+
+    public static boolean GM_Fog_Vanilla(boolean result) {
+        if (GM_Shaders.GM_Off()) {
+            return result;
+        }
+        try {
+            return GM_Shaders.GM_Fog_Vanilla(result);
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("fog switch failed", t);
             return result;
         }
     }
