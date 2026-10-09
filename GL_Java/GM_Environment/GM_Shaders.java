@@ -32,20 +32,23 @@ final class GM_Shaders {
     static final int GM_Ring_Size = 8;
     static final int GM_Players = 4;
     static final int GM_Lamp_Count = 8;
-    static final int GM_Trail_Count = 12;
     static final int GM_Var_Seq = 20;
     static final float GM_Delta = 0.023093667f / 16.0f;
     static final float GM_Fog_Height = 0.6f;
+    static final float GM_Fog_Window = 128.0f;
+    static final float GM_Fog_Snap = 4.0f;
     static final float GM_Ray_Strength = 0.6f;
     static final float GM_Refl_Strength = 0.55f;
-    static final float GM_Bloom_Strength = 0.25f;
-    static final float GM_Trail_Interval = 0.22f;
-    static final float GM_Trail_Life = 3.2f;
+    static final float GM_Bloom_Strength = 0.18f;
+    static final float GM_Wind_Base = 0.12f;
+    static final float GM_Wind_Gain = 0.7f;
+    static final float GM_Speed_Cap = 8.0f;
     static final int GM_Unit_Depth = 1;
     static final int GM_Unit_Rays = 2;
     static final int GM_Unit_Bloom = 3;
     static final int GM_Unit_Field = 4;
     static final int GM_Unit_Bank = 5;
+    static final int GM_Unit_FogTex = 6;
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_ACTIVE_TEXTURE = 0x84E0;
@@ -71,19 +74,63 @@ final class GM_Shaders {
         float fogAmount;
         float night;
         float time;
-        float windX;
-        float windY;
+        float dt;
+        float windVX;
+        float windVY;
+        float driftX;
+        float driftY;
+        float playerX;
+        float playerY;
+        float playerVX;
+        float playerVY;
+        float fogX;
+        float fogY;
         final float[] lamps = new float[GM_Lamp_Count * 4];
         final float[] lampColours = new float[GM_Lamp_Count * 3];
-        final float[] trail = new float[GM_Trail_Count * 4];
     }
 
-    private static final class GM_Track {
-        final float[] x = new float[GM_Trail_Count - 1];
-        final float[] y = new float[GM_Trail_Count - 1];
-        final float[] age = new float[GM_Trail_Count - 1];
-        int count;
-        float sinceDrop;
+    static final class GM_Locs {
+        int program = -1;
+        int depth = -1;
+        int field = -1;
+        int fogTex = -1;
+        int view = -1;
+        int tex = -1;
+        int ref = -1;
+        int rect = -1;
+        int on = -1;
+        int fogRect = -1;
+        int fog = -1;
+        int wind = -1;
+        int time = -1;
+        int player = -1;
+        int wake = -1;
+
+        void GM_Find(int id) {
+            program = id;
+            depth = GL20.glGetUniformLocation(id, "GM_Depth");
+            field = GL20.glGetUniformLocation(id, "GM_Field");
+            fogTex = GL20.glGetUniformLocation(id, "GM_FogTex");
+            view = GL20.glGetUniformLocation(id, "GM_View");
+            tex = GL20.glGetUniformLocation(id, "GM_Tex");
+            ref = GL20.glGetUniformLocation(id, "GM_Ref");
+            rect = GL20.glGetUniformLocation(id, "GM_FieldRect");
+            on = GL20.glGetUniformLocation(id, "GM_FieldOn");
+            fogRect = GL20.glGetUniformLocation(id, "GM_FogRect");
+            fog = GL20.glGetUniformLocation(id, "GM_Fog");
+            wind = GL20.glGetUniformLocation(id, "GM_Wind");
+            time = GL20.glGetUniformLocation(id, "GM_Time");
+            player = GL20.glGetUniformLocation(id, "GM_Player");
+            wake = GL20.glGetUniformLocation(id, "GM_Wake");
+        }
+    }
+
+    private static final class GM_Motion {
+        float lastX;
+        float lastY;
+        float vx;
+        float vy;
+        boolean valid;
     }
 
     private static volatile boolean GM_Failed;
@@ -93,27 +140,15 @@ final class GM_Shaders {
     private static Object GM_Vanilla;
     private static int GM_Seq;
     private static final GM_Frame[][] GM_Ring = new GM_Frame[GM_Ring_Size][GM_Players];
-    private static final GM_Track[] GM_Tracks = new GM_Track[GM_Players];
+    private static final GM_Motion[] GM_Motions = new GM_Motion[GM_Players];
     private static long GM_Last_Nanos;
     private static float GM_Clock;
-    private static float GM_Wind_X;
-    private static float GM_Wind_Y;
-    private static final float[] GM_Fx = {1, 1, 1, 1, 1, 0, 1, 1, 0, 1};
-    private static int GM_Program;
-    private static int GM_Loc_Depth = -1;
+    private static double GM_Drift_X;
+    private static double GM_Drift_Y;
+    private static final float[] GM_Fx = {1, 1, 1, 1, 1, 0, 1, 1, 1, 1};
+    private static final GM_Locs GM_Screen_Locs = new GM_Locs();
     private static int GM_Loc_Rays = -1;
     private static int GM_Loc_Bloom = -1;
-    private static int GM_Loc_Field = -1;
-    private static int GM_Loc_View = -1;
-    private static int GM_Loc_Tex = -1;
-    private static int GM_Loc_Ref = -1;
-    private static int GM_Loc_Rect = -1;
-    private static int GM_Loc_On = -1;
-    private static int GM_Loc_Fog = -1;
-    private static int GM_Loc_Wind = -1;
-    private static int GM_Loc_Time = -1;
-    private static int GM_Loc_Trail = -1;
-    private static int GM_Loc_Wake = -1;
     private static int GM_Loc_Sun = -1;
     private static int GM_Loc_SunCol = -1;
     private static int GM_Loc_FogCol = -1;
@@ -148,6 +183,10 @@ final class GM_Shaders {
 
     static void GM_World_Reset() {
         GM_Missing = false;
+        for (int i = 0; i < GM_Players; i++) {
+            GM_Motions[i] = null;
+        }
+        GM_Pass.GM_Fog_Reset();
     }
 
     static void GM_Check() {
@@ -217,15 +256,26 @@ final class GM_Shaders {
         long now = System.nanoTime();
         float dt = GM_Last_Nanos == 0 ? 0.016f : Math.min(0.1f, (now - GM_Last_Nanos) / 1.0e9f);
         GM_Last_Nanos = now;
+        if (GameTime.isGamePaused()) {
+            dt = 0.0f;
+        }
         GM_Clock += dt;
         if (GM_Clock > 100000.0f) {
             GM_Clock -= 100000.0f;
         }
         ClimateManager climate = ClimateManager.getInstance();
         float windAngle = climate.getWindAngleRadians();
-        float windStrength = climate.getWindIntensity();
-        GM_Wind_X += (float) Math.cos(windAngle) * windStrength * dt * 0.25f;
-        GM_Wind_Y += (float) Math.sin(windAngle) * windStrength * dt * 0.25f;
+        float windStrength = GM_Clamp(climate.getWindIntensity(), 0.0f, 1.0f);
+        float windSpeed = GM_Wind_Base + GM_Wind_Gain * windStrength;
+        float windVX = (float) Math.cos(windAngle) * windSpeed;
+        float windVY = (float) Math.sin(windAngle) * windSpeed;
+        GM_Drift_X += windVX * (double) dt;
+        GM_Drift_Y += windVY * (double) dt;
+        if (Math.abs(GM_Drift_X) > 1.0e6 || Math.abs(GM_Drift_Y) > 1.0e6) {
+            GM_Drift_X = 0.0;
+            GM_Drift_Y = 0.0;
+            GM_Pass.GM_Fog_Reset();
+        }
         GM_Seq++;
         int slot = GM_Seq % GM_Ring_Size;
         int players = Math.max(1, Math.min(GM_Players, IsoPlayer.numPlayers));
@@ -236,6 +286,11 @@ final class GM_Shaders {
                 frame = new GM_Frame();
                 GM_Ring[slot][p] = frame;
             }
+            frame.dt = dt;
+            frame.windVX = windVX;
+            frame.windVY = windVY;
+            frame.driftX = (float) GM_Drift_X;
+            frame.driftY = (float) GM_Drift_Y;
             GM_Frame_Fill(frame, p, dt, climate);
             frames[p] = frame;
         }
@@ -252,8 +307,6 @@ final class GM_Shaders {
         frame.texLeft = IsoCamera.getOffscreenLeft(p);
         frame.texBottom = IsoCamera.getOffscreenTop(p) + IsoCamera.getScreenHeight(p);
         frame.time = GM_Clock;
-        frame.windX = GM_Wind_X;
-        frame.windY = GM_Wind_Y;
         IsoPlayer player = IsoPlayer.players[p];
         float camX = IsoCamera.frameState.camCharacterX;
         float camY = IsoCamera.frameState.camCharacterY;
@@ -266,9 +319,11 @@ final class GM_Shaders {
         int level = (int) Math.floor(camZ);
         frame.depthRef = IsoDepthHelper.getSquareDepthData((int) camX, (int) camY, camX, camY, level).depthStart;
         frame.sumRef = camX + camY;
+        frame.fogX = (float) Math.floor((camX - frame.driftX - GM_Fog_Window * 0.5f) * GM_Fog_Snap) / GM_Fog_Snap;
+        frame.fogY = (float) Math.floor((camY - frame.driftY - GM_Fog_Window * 0.5f) * GM_Fog_Snap) / GM_Fog_Snap;
         GM_Env_Fill(frame, climate);
         GM_Lamps_Fill(frame, level, camX, camY);
-        GM_Trail_Fill(frame, p, player, dt);
+        GM_Motion_Fill(frame, p, player, camX, camY, dt);
     }
 
     private static float GM_Clamp(float v, float lo, float hi) {
@@ -292,7 +347,7 @@ final class GM_Shaders {
         frame.sunAmount = GM_Mix(GM_Mix(0.6f, 1.0f, lowSun), 0.2f, night);
         frame.sunStep = GM_Mix(GM_Mix(0.6f, 1.1f, lowSun), 0.9f, night);
         float[] day = {1.0f, 0.97f, 0.88f};
-        float[] low = {1.0f, 0.70f, 0.45f};
+        float[] low = {1.0f, 0.74f, 0.52f};
         float[] moon = {0.55f, 0.65f, 0.85f};
         for (int i = 0; i < 3; i++) {
             frame.sunColour[i] = GM_Mix(GM_Mix(day[i], low[i], lowSun), moon[i], night);
@@ -311,7 +366,7 @@ final class GM_Shaders {
         float[] tint = {0.93f, 0.98f, 1.0f};
         float[] base = {r, g, b};
         for (int i = 0; i < 3; i++) {
-            frame.fogColour[i] = (GM_Mix(base[i], luma, 0.5f) * 0.8f + 0.04f) * tint[i];
+            frame.fogColour[i] = (GM_Mix(base[i], luma, 0.55f) * 0.78f + 0.03f) * tint[i];
         }
         float fog = GM_Clamp(climate.getFogIntensity(), 0.0f, 1.0f);
         frame.fogAmount = Math.max(fog, dawnK * 0.15f + night * 0.05f);
@@ -387,58 +442,35 @@ final class GM_Shaders {
         }
     }
 
-    private static void GM_Trail_Fill(GM_Frame frame, int p, IsoPlayer player, float dt) {
-        float[] trail = frame.trail;
-        java.util.Arrays.fill(trail, 0.0f);
-        if (player == null) {
-            return;
+    private static void GM_Motion_Fill(GM_Frame frame, int p, IsoPlayer player, float camX, float camY, float dt) {
+        GM_Motion motion = GM_Motions[p];
+        if (motion == null) {
+            motion = new GM_Motion();
+            GM_Motions[p] = motion;
         }
-        GM_Track track = GM_Tracks[p];
-        if (track == null) {
-            track = new GM_Track();
-            GM_Tracks[p] = track;
-        }
-        float px = player.getX();
-        float py = player.getY();
-        int n = GM_Trail_Count - 1;
-        int keep = 0;
-        for (int i = 0; i < track.count; i++) {
-            float age = track.age[i] + dt;
-            if (age >= GM_Trail_Life) {
-                continue;
+        float px = player != null ? player.getX() : camX;
+        float py = player != null ? player.getY() : camY;
+        if (motion.valid && dt > 0.0f) {
+            float vx = (px - motion.lastX) / dt;
+            float vy = (py - motion.lastY) / dt;
+            float speed = (float) Math.sqrt(vx * vx + vy * vy);
+            if (speed > GM_Speed_Cap) {
+                vx = vy = 0.0f;
             }
-            track.x[keep] = track.x[i];
-            track.y[keep] = track.y[i];
-            track.age[keep] = age;
-            keep++;
+            float k = GM_Clamp(dt * 8.0f, 0.0f, 1.0f);
+            motion.vx = GM_Mix(motion.vx, vx, k);
+            motion.vy = GM_Mix(motion.vy, vy, k);
+        } else if (dt <= 0.0f) {
+            motion.vx = 0.0f;
+            motion.vy = 0.0f;
         }
-        track.count = keep;
-        track.sinceDrop += dt;
-        if (track.sinceDrop >= GM_Trail_Interval) {
-            track.sinceDrop = 0.0f;
-            if (track.count == n) {
-                System.arraycopy(track.x, 1, track.x, 0, n - 1);
-                System.arraycopy(track.y, 1, track.y, 0, n - 1);
-                System.arraycopy(track.age, 1, track.age, 0, n - 1);
-                track.count = n - 1;
-            }
-            track.x[track.count] = px;
-            track.y[track.count] = py;
-            track.age[track.count] = 0.0f;
-            track.count++;
-        }
-        trail[0] = px;
-        trail[1] = py;
-        trail[2] = 1.0f;
-        trail[3] = 1.25f;
-        for (int i = 0; i < track.count; i++) {
-            float k = Math.max(0.0f, 1.0f - track.age[i] / GM_Trail_Life);
-            int o = (i + 1) * 4;
-            trail[o] = track.x[i];
-            trail[o + 1] = track.y[i];
-            trail[o + 2] = k * k * 0.9f;
-            trail[o + 3] = 0.75f + track.age[i] * 0.25f;
-        }
+        motion.lastX = px;
+        motion.lastY = py;
+        motion.valid = true;
+        frame.playerX = px;
+        frame.playerY = py;
+        frame.playerVX = motion.vx;
+        frame.playerVY = motion.vy;
     }
 
     static void GM_Mark(Object self, Object draw, int player) {
@@ -477,22 +509,11 @@ final class GM_Shaders {
         if (program == 0) {
             return;
         }
-        if (program != GM_Program) {
-            GM_Program = program;
-            GM_Loc_Depth = GL20.glGetUniformLocation(program, "GM_Depth");
+        GM_Locs locs = GM_Screen_Locs;
+        if (program != locs.program) {
+            locs.GM_Find(program);
             GM_Loc_Rays = GL20.glGetUniformLocation(program, "GM_Rays");
             GM_Loc_Bloom = GL20.glGetUniformLocation(program, "GM_Bloom");
-            GM_Loc_Field = GL20.glGetUniformLocation(program, "GM_Field");
-            GM_Loc_View = GL20.glGetUniformLocation(program, "GM_View");
-            GM_Loc_Tex = GL20.glGetUniformLocation(program, "GM_Tex");
-            GM_Loc_Ref = GL20.glGetUniformLocation(program, "GM_Ref");
-            GM_Loc_Rect = GL20.glGetUniformLocation(program, "GM_FieldRect");
-            GM_Loc_On = GL20.glGetUniformLocation(program, "GM_FieldOn");
-            GM_Loc_Fog = GL20.glGetUniformLocation(program, "GM_Fog");
-            GM_Loc_Wind = GL20.glGetUniformLocation(program, "GM_Wind");
-            GM_Loc_Time = GL20.glGetUniformLocation(program, "GM_Time");
-            GM_Loc_Trail = GL20.glGetUniformLocation(program, "GM_Trail");
-            GM_Loc_Wake = GL20.glGetUniformLocation(program, "GM_Wake");
             GM_Loc_Sun = GL20.glGetUniformLocation(program, "GM_Sun");
             GM_Loc_SunCol = GL20.glGetUniformLocation(program, "GM_SunCol");
             GM_Loc_FogCol = GL20.glGetUniformLocation(program, "GM_FogCol");
@@ -503,7 +524,7 @@ final class GM_Shaders {
             GM_Loc_Lamps = GL20.glGetUniformLocation(program, "GM_Lamps");
             GM_Loc_LampCol = GL20.glGetUniformLocation(program, "GM_LampCol");
         }
-        if (GM_Loc_View < 0) {
+        if (locs.view < 0) {
             return;
         }
         int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
@@ -513,15 +534,18 @@ final class GM_Shaders {
         GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Rays_Texture());
         GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Bloom);
         GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Bloom_Texture());
+        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_FogTex);
+        GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
         GM_Field.GM_Data field = GM_Field.GM_Upload(GM_Unit_Field, GM_Unit_Bank);
         Texture.lastTextureID = -1;
         SpriteRenderer.ringBuffer.restoreBoundTextures = true;
         GL13.glActiveTexture(unit);
-        GL20.glUniform1i(GM_Loc_Depth, GM_Unit_Depth);
+        GL20.glUniform1i(locs.depth, GM_Unit_Depth);
         GL20.glUniform1i(GM_Loc_Rays, GM_Unit_Rays);
         GL20.glUniform1i(GM_Loc_Bloom, GM_Unit_Bloom);
-        GL20.glUniform1i(GM_Loc_Field, GM_Unit_Field);
-        GM_Uniforms(frame, field, GM_Loc_View, GM_Loc_Tex, GM_Loc_Ref, GM_Loc_Rect, GM_Loc_On, GM_Loc_Fog, GM_Loc_Wind, GM_Loc_Time, GM_Loc_Trail, GM_Loc_Wake);
+        GL20.glUniform1i(locs.field, GM_Unit_Field);
+        GL20.glUniform1i(locs.fogTex, GM_Unit_FogTex);
+        GM_Uniforms(frame, field, locs);
         GL20.glUniform4f(GM_Loc_Sun, frame.sunDirX, frame.sunDirY, frame.sunAmount, GM_Ray_Strength);
         GL20.glUniform3fv(GM_Loc_SunCol, frame.sunColour);
         GL20.glUniform3fv(GM_Loc_FogCol, frame.fogColour);
@@ -533,40 +557,43 @@ final class GM_Shaders {
         GL20.glUniform3fv(GM_Loc_LampCol, frame.lampColours);
     }
 
-    static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, int locView, int locTex, int locRef, int locRect, int locOn, int locFog, int locWind, int locTime, int locTrail, int locWake) {
-        if (locView >= 0) {
-            GL20.glUniform4f(locView, frame.offX, frame.offY, frame.zoom, frame.tileScale);
+    static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, GM_Locs locs) {
+        if (locs.view >= 0) {
+            GL20.glUniform4f(locs.view, frame.offX, frame.offY, frame.zoom, frame.tileScale);
         }
-        if (locTex >= 0) {
-            GL20.glUniform4f(locTex, frame.texLeft, frame.texBottom, 1.0f / Math.max(1, GM_Pass.GM_Width()), 1.0f / Math.max(1, GM_Pass.GM_Height()));
+        if (locs.tex >= 0) {
+            GL20.glUniform4f(locs.tex, frame.texLeft, frame.texBottom, 1.0f / Math.max(1, GM_Pass.GM_Width()), 1.0f / Math.max(1, GM_Pass.GM_Height()));
         }
-        if (locRef >= 0) {
-            GL20.glUniform4f(locRef, frame.depthRef, frame.sumRef, GM_Delta, 0.0f);
+        if (locs.ref >= 0) {
+            GL20.glUniform4f(locs.ref, frame.depthRef, frame.sumRef, GM_Delta, 0.0f);
         }
-        if (locRect >= 0) {
+        if (locs.rect >= 0) {
             if (field != null) {
-                GL20.glUniform4f(locRect, field.x0, field.y0, 1.0f / GM_Field.GM_Size, 1.0f / GM_Field.GM_Size);
+                GL20.glUniform4f(locs.rect, field.x0, field.y0, 1.0f / GM_Field.GM_Size, 1.0f / GM_Field.GM_Size);
             } else {
-                GL20.glUniform4f(locRect, 0.0f, 0.0f, 1.0f / GM_Field.GM_Size, 1.0f / GM_Field.GM_Size);
+                GL20.glUniform4f(locs.rect, 0.0f, 0.0f, 1.0f / GM_Field.GM_Size, 1.0f / GM_Field.GM_Size);
             }
         }
-        if (locOn >= 0) {
-            GL20.glUniform1f(locOn, field != null ? 1.0f : 0.0f);
+        if (locs.on >= 0) {
+            GL20.glUniform1f(locs.on, field != null ? 1.0f : 0.0f);
         }
-        if (locFog >= 0) {
-            GL20.glUniform4f(locFog, frame.fogAmount, GM_Fog_Height, 0.0f, 0.0f);
+        if (locs.fogRect >= 0) {
+            GL20.glUniform4f(locs.fogRect, frame.fogX, frame.fogY, 1.0f / GM_Fog_Window, GM_Fog_Window);
         }
-        if (locWind >= 0) {
-            GL20.glUniform2f(locWind, frame.windX, frame.windY);
+        if (locs.fog >= 0) {
+            GL20.glUniform4f(locs.fog, frame.fogAmount, GM_Fog_Height, 0.0f, 0.0f);
         }
-        if (locTime >= 0) {
-            GL20.glUniform1f(locTime, frame.time);
+        if (locs.wind >= 0) {
+            GL20.glUniform4f(locs.wind, frame.windVX, frame.windVY, frame.driftX, frame.driftY);
         }
-        if (locTrail >= 0) {
-            GL20.glUniform4fv(locTrail, frame.trail);
+        if (locs.time >= 0) {
+            GL20.glUniform1f(locs.time, frame.time);
         }
-        if (locWake >= 0) {
-            GL20.glUniform1f(locWake, GM_Fx[2]);
+        if (locs.player >= 0) {
+            GL20.glUniform4f(locs.player, frame.playerX, frame.playerY, frame.playerVX, frame.playerVY);
+        }
+        if (locs.wake >= 0) {
+            GL20.glUniform1f(locs.wake, GM_Fx[2]);
         }
     }
 

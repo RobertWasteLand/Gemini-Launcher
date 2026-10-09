@@ -5,6 +5,10 @@ public final class GameTime {
         return null;
     }
 
+    public static boolean isGamePaused() {
+        return false;
+    }
+
     public float getTimeOfDay() {
         return 0.0f;
     }
