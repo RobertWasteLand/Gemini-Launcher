@@ -435,19 +435,25 @@ final class GM_Field {
     static GM_Data GM_Upload(int unitField, int unitBank) {
         GM_Data pending = GM_Pending.getAndSet(null);
         int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
-        GL13.glActiveTexture(GL_TEXTURE0 + unitField);
-        GM_Texture = GM_Texture_Bind(GM_Texture);
-        if (pending != null) {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.pixels);
+        try {
+            GL13.glActiveTexture(GL_TEXTURE0 + unitField);
+            GM_Texture = GM_Texture_Bind(GM_Texture);
+            if (GM_Settings.GM_Test("upload")) {
+                throw new IllegalStateException("test failure: upload");
+            }
+            if (pending != null) {
+                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.pixels);
+            }
+            GL13.glActiveTexture(GL_TEXTURE0 + unitBank);
+            GM_Texture_Bank = GM_Texture_Bind(GM_Texture_Bank);
+            if (pending != null) {
+                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.bank);
+                GM_Current = pending;
+            }
+        } finally {
+            Texture.lastTextureID = -1;
+            GL13.glActiveTexture(unit);
         }
-        GL13.glActiveTexture(GL_TEXTURE0 + unitBank);
-        GM_Texture_Bank = GM_Texture_Bind(GM_Texture_Bank);
-        if (pending != null) {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.bank);
-            GM_Current = pending;
-        }
-        Texture.lastTextureID = -1;
-        GL13.glActiveTexture(unit);
         return GM_Current;
     }
 

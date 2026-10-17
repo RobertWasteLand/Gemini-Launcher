@@ -62,4 +62,8 @@ public final class GL11 {
 
     public static void glDrawArrays(int mode, int first, int count) {
     }
+
+    public static int glGetError() {
+        return 0;
+    }
 }

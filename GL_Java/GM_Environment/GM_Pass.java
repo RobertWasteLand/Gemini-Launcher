@@ -67,6 +67,9 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static final int GL_ALPHA_TEST = 0x0BC0;
     private static final int GL_CULL_FACE = 0x0B44;
     private static final int GL_ALL_ATTRIB_BITS = 0xFFFFF;
+    private static final int GL_NO_ERROR = 0;
+    private static final int GL_OUT_OF_MEMORY = 0x0505;
+    private static final int GM_Error_Max = 32;
     private static final int GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
     private static final int GL_LESS = 0x0201;
 
@@ -173,36 +176,46 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             SpriteRenderer.ringBuffer.restoreVbos = true;
         }
         if (GM_Fog_Tex[0] == 0) {
+            GM_Memory_Clear();
             for (int i = 0; i < 2; i++) {
                 GM_Fog_Tex[i] = GM_Texture_Make(GM_Fog_Size, GM_Fog_Size, false, true);
                 GM_Fog_Fbo[i] = GM_Fbo_Make(GM_Fog_Tex[i], false);
             }
+            GM_Memory_Check("fog");
             GM_Fog_Fresh = true;
         }
         GM_Ready = true;
         return true;
     }
 
+    private static int GM_Id(ShaderProgram program, String name) {
+        int id = program.getShaderID();
+        if (id == 0) {
+            throw new IllegalStateException(name + " stopped compiling");
+        }
+        return id;
+    }
+
     private static void GM_Locations() {
-        int rays = GM_Prog_Rays.getShaderID();
+        int rays = GM_Id(GM_Prog_Rays, GM_Name_Rays);
         if (rays != GM_Rays_Locs.program) {
             GM_Rays_Locs.GM_Find(rays);
             GM_Rays_Loc_Dir = GL20.glGetUniformLocation(rays, "GM_RayDir");
             GM_Rays_Loc_Res = GL20.glGetUniformLocation(rays, "GM_RayRes");
         }
-        int sim = GM_Prog_FogSim.getShaderID();
+        int sim = GM_Id(GM_Prog_FogSim, GM_Name_FogSim);
         if (sim != GM_FogSim_Locs.program) {
             GM_FogSim_Locs.GM_Find(sim);
             GM_FogSim_Loc_Prev = GL20.glGetUniformLocation(sim, "GM_FogRectPrev");
             GM_FogSim_Loc_Sim = GL20.glGetUniformLocation(sim, "GM_FogSim");
         }
-        int bright = GM_Prog_Bright.getShaderID();
+        int bright = GM_Id(GM_Prog_Bright, GM_Name_Bright);
         if (bright != GM_Bright_Program) {
             GM_Bright_Program = bright;
             GM_Bright_Loc_Scene = GL20.glGetUniformLocation(bright, "GM_Scene");
             GM_Bright_Loc_Threshold = GL20.glGetUniformLocation(bright, "GM_Threshold");
         }
-        int blur = GM_Prog_Blur.getShaderID();
+        int blur = GM_Id(GM_Prog_Blur, GM_Name_Blur);
         if (blur != GM_Blur_Program) {
             GM_Blur_Program = blur;
             GM_Blur_Loc_Source = GL20.glGetUniformLocation(blur, "GM_Source");
@@ -269,8 +282,37 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Depth_Tex = GM_Rays_Tex = GM_Bright_Tex = GM_BlurA_Tex = GM_BlurB_Tex = 0;
     }
 
+    private static void GM_Memory_Clear() {
+        for (int i = 0; i < GM_Error_Max && GL11.glGetError() != GL_NO_ERROR; i++) {
+        }
+    }
+
+    private static void GM_Memory_Check(String what) {
+        boolean out = false;
+        for (int i = 0; i < GM_Error_Max; i++) {
+            int error = GL11.glGetError();
+            if (error == GL_NO_ERROR) {
+                break;
+            }
+            out |= error == GL_OUT_OF_MEMORY;
+        }
+        if (out || GM_Settings.GM_Test("memory")) {
+            throw new IllegalStateException("out of video memory while making the " + what + " images");
+        }
+    }
+
+    private static long GM_Bytes(int width, int height) {
+        long full = (long) width * height * 4L;
+        long half = (long) Math.max(1, width / 2) * Math.max(1, height / 2) * 4L * 2L;
+        long quarter = (long) Math.max(1, width / 4) * Math.max(1, height / 4) * 4L * 2L;
+        long fog = (long) GM_Fog_Size * GM_Fog_Size * 8L * 2L;
+        long field = (long) GM_Field.GM_Size * GM_Field.GM_Size * 4L * 2L;
+        return full + half + quarter + fog + field;
+    }
+
     private static void GM_Resize(int width, int height) {
         GM_Release();
+        GM_Memory_Clear();
         GM_W = width;
         GM_H = height;
         GM_Half_W = Math.max(1, width / 2);
@@ -279,6 +321,9 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Quarter_H = Math.max(1, height / 4);
         GM_Depth_Tex = GM_Texture_Make(width, height, true, false);
         GM_Depth_Fbo = GM_Fbo_Make(GM_Depth_Tex, true);
+        if (GM_Settings.GM_Test("resize")) {
+            throw new IllegalStateException("test failure: resize");
+        }
         GM_Rays_Tex = GM_Texture_Make(GM_Half_W, GM_Half_H, false, false);
         GM_Rays_Fbo = GM_Fbo_Make(GM_Rays_Tex, false);
         GM_Bright_Tex = GM_Texture_Make(GM_Half_W, GM_Half_H, false, false);
@@ -287,6 +332,8 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_BlurA_Fbo = GM_Fbo_Make(GM_BlurA_Tex, false);
         GM_BlurB_Tex = GM_Texture_Make(GM_Quarter_W, GM_Quarter_H, false, false);
         GM_BlurB_Fbo = GM_Fbo_Make(GM_BlurB_Tex, false);
+        GM_Memory_Check("screen effect");
+        System.out.println("[GL_Java] GM_Environment effects use " + (GM_Bytes(width, height) + 524288L) / 1048576L + " MB of video memory at " + width + "x" + height);
     }
 
     @Override
@@ -311,10 +358,6 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         if (width <= 0 || height <= 0) {
             return;
         }
-        if (width != GM_W || height != GM_H) {
-            GM_Resize(width, height);
-        }
-        GM_Locations();
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
         int prevFbo = TextureFBO.getCurrentID();
@@ -323,6 +366,17 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         int prevUnit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
         GL11.glGetIntegerv(GL_VIEWPORT, GM_Viewport);
         try {
+            if (width != GM_W || height != GM_H || GM_Settings.GM_Test("resize")) {
+                try {
+                    GM_Resize(width, height);
+                } catch (Throwable t) {
+                    GM_Release();
+                    GM_W = 0;
+                    GM_H = 0;
+                    throw t;
+                }
+            }
+            GM_Locations();
             GM_Timing.GM_Stamp(GM_Timing.GM_Begin);
             if (this.frame.depth) {
                 GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, world.getBufferId());
@@ -339,6 +393,9 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             GL11.glDepthMask(false);
             GL11.glColorMask(true, true, true, true);
             GL30.glBindVertexArray(GM_Vao);
+            if (GM_Settings.GM_Test("pass")) {
+                throw new IllegalStateException("test failure: pass");
+            }
             float[] fx = this.frame.fx;
             if (fx[GM_Shaders.GM_Fx_Fog] > 0.5f) {
                 GM_Fog_Draw();
@@ -432,17 +489,24 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         if (!GM_Ready || GM_Prog_Depth == null) {
             return;
         }
+        int depth = GM_Id(GM_Prog_Depth, GM_Name_Depth);
         int program = GL11.glGetInteger(GL_CURRENT_PROGRAM);
-        GL20.glUseProgram(GM_Prog_Depth.getShaderID());
-        VertexBufferObject.setModelViewProjection(GM_Prog_Depth);
-        GL20.glEnableVertexAttribArray(6);
-        GL11.glColorMask(false, false, false, false);
-        GL11.glDepthMask(true);
-        GL11.glDepthFunc(GL_LESS);
-        GL12.glDrawRangeElements(GL_TRIANGLES, 0, count * 4, count * 6, GL_UNSIGNED_SHORT, 0L);
-        GL11.glDepthMask(false);
-        GL11.glColorMask(true, true, true, true);
-        GL20.glDisableVertexAttribArray(6);
-        GL20.glUseProgram(program);
+        try {
+            GL20.glUseProgram(depth);
+            VertexBufferObject.setModelViewProjection(GM_Prog_Depth);
+            GL20.glEnableVertexAttribArray(6);
+            GL11.glColorMask(false, false, false, false);
+            GL11.glDepthMask(true);
+            GL11.glDepthFunc(GL_LESS);
+            if (GM_Settings.GM_Test("depth")) {
+                throw new IllegalStateException("test failure: depth");
+            }
+            GL12.glDrawRangeElements(GL_TRIANGLES, 0, count * 4, count * 6, GL_UNSIGNED_SHORT, 0L);
+        } finally {
+            GL11.glDepthMask(false);
+            GL11.glColorMask(true, true, true, true);
+            GL20.glDisableVertexAttribArray(6);
+            GL20.glUseProgram(program);
+        }
     }
 }

@@ -43,6 +43,7 @@ final class GM_Timing {
         private long since;
         private volatile float avg = -1.0f;
         private volatile float peak = -1.0f;
+        private volatile long last;
 
         void GM_Add(long nanos) {
             sum += nanos;
@@ -51,6 +52,7 @@ final class GM_Timing {
                 max = nanos;
             }
             long now = System.nanoTime();
+            last = now;
             if (since == 0L) {
                 since = now;
                 return;
@@ -69,7 +71,8 @@ final class GM_Timing {
         String GM_Text() {
             float a = avg;
             float p = peak;
-            if (a < 0.0f) {
+            long seen = last;
+            if (a < 0.0f || seen == 0L || System.nanoTime() - seen > GM_Window * 2) {
                 return "-";
             }
             return GM_Ms(a) + " (max " + GM_Ms(p) + ")";

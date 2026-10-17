@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 
 import zombie.ZomboidFileSystem;
+import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.opengl.Shader;
 import zombie.core.opengl.RenderThread;
@@ -32,8 +33,8 @@ public final class GM_Environment {
     private static Object GM_Vanilla_Effect;
     private static Object GM_ShoreFade_Option;
     private static boolean GM_Field_Idle;
-    private static boolean GM_Shore_Live = true;
-    private static boolean GM_Shore_Pending;
+    private static volatile boolean GM_Shore_Live = true;
+    private static volatile boolean GM_Shore_Pending;
     private static int GM_Effect_Quality = -1;
 
     private GM_Environment() {
@@ -45,7 +46,25 @@ public final class GM_Environment {
         }
         GM_Shown = true;
         System.out.println("[GL_Java] GM_Environment active (" + GM_Build_Tag() + ")");
+        GM_Settings_Tick(true);
+        String changed = GM_Hooks.GM_Run();
+        if (changed != null) {
+            GM_Shaders.GM_Fail("game check failed", new IllegalStateException(changed));
+            GM_Fail("game check failed", new IllegalStateException(changed));
+        } else if (GM_Settings.GM_Test("opengl") || GM_Old_OpenGL()) {
+            String card = "this graphics card or driver does not support OpenGL 3.3, so the game runs its older shader mode and the effects stay off";
+            GM_Shaders.GM_Fail("older OpenGL", new IllegalStateException(card));
+            GM_Fail("older OpenGL", new IllegalStateException(card));
+        }
         GM_ShoreFade_Find();
+    }
+
+    private static boolean GM_Old_OpenGL() {
+        try {
+            return Core.getInstance().getUseOpenGL21();
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private static String GM_Build_Tag() {
@@ -65,7 +84,13 @@ public final class GM_Environment {
             return;
         }
         GM_Failed = true;
+        GM_ShoreFade = null;
+        if (GM_Shore_Live) {
+            GM_Shore_Live = false;
+            GM_Shore_Pending = true;
+        }
         System.out.println("[GL_Java] GM_Environment off: " + what + " (" + t + ")");
+        GM_Shaders.GM_Fail("the water side stopped", t);
     }
 
     static boolean GM_Off() {
@@ -103,14 +128,18 @@ public final class GM_Environment {
     }
 
     private static void GM_Shore_Refresh() {
-        if (!GM_Shore_Pending || GM_Failed) {
+        if (!GM_Shore_Pending) {
             return;
         }
         GM_Shore_Pending = false;
         try {
             GM_Shore.GM_Refresh();
         } catch (Throwable t) {
-            GM_Fail("shore refresh failed", t);
+            if (GM_Failed) {
+                System.out.println("[GL_Java] GM_Environment shore refresh failed (" + t + ")");
+            } else {
+                GM_Fail("shore refresh failed", t);
+            }
         }
     }
 
@@ -127,16 +156,23 @@ public final class GM_Environment {
     }
 
     private static void GM_ShoreFade_Update() {
-        GM_ShoreFade = GM_Shore_On(GM_Settings.GM_Get()) ? GM_ShoreFade_Option : null;
+        GM_ShoreFade = !GM_Failed && GM_Shore_On(GM_Settings.GM_Get()) ? GM_ShoreFade_Option : null;
     }
 
     public static void GM_Water_Check(Object self) {
-        if (GM_Failed || GM_Missing || !(self instanceof IsoWater)) {
+        if (!(self instanceof IsoWater)) {
+            return;
+        }
+        if (GM_Failed || GM_Missing) {
+            GM_Water_Restore((IsoWater) self);
             return;
         }
         GM_Settings_Tick(false);
         try {
             IsoWater water = (IsoWater) self;
+            if (GM_Settings.GM_Test("water")) {
+                throw new IllegalStateException("test failure: water");
+            }
             if (!water.getShaderEnable()) {
                 return;
             }
@@ -146,6 +182,11 @@ public final class GM_Environment {
             }
             boolean on = GM_Settings.GM_Get().GM_On(GM_Features.GM_Water);
             if (GM_Effect != null && quality == GM_Effect_Quality) {
+                if (water.effect == GM_Effect && !((Shader) GM_Effect).isCompiled()) {
+                    GM_Fail("the water shader stopped compiling", new IllegalStateException(quality == 0 ? GM_Shader_High : GM_Shader_Medium));
+                    GM_Water_Restore(water);
+                    return;
+                }
                 Object wanted = on ? GM_Effect : GM_Vanilla_Effect;
                 if (wanted != null && water.effect != wanted) {
                     water.effect = (Shader) wanted;
@@ -160,7 +201,18 @@ public final class GM_Environment {
             GM_ShoreFade_Find();
             RenderThread.invokeOnRenderContext(() -> GM_Water_Install(water, quality, on));
         } catch (Throwable t) {
-            GM_Fail("water shader install failed", t);
+            GM_Fail("water check failed", t);
+        }
+    }
+
+    private static void GM_Water_Restore(IsoWater water) {
+        try {
+            if (GM_Effect != null && GM_Vanilla_Effect != null && water.effect == GM_Effect) {
+                water.effect = (Shader) GM_Vanilla_Effect;
+                System.out.println("[GL_Java] GM_Environment water back to vanilla");
+            }
+        } catch (Throwable t) {
+            System.out.println("[GL_Java] GM_Environment water restore failed (" + t + ")");
         }
     }
 
@@ -207,6 +259,9 @@ public final class GM_Environment {
             if (GM_Field_Idle) {
                 GM_Field_Idle = false;
                 GM_Field.GM_Invalidate();
+            }
+            if (GM_Settings.GM_Test("field")) {
+                throw new IllegalStateException("test failure: field");
             }
             GM_Field.GM_Tick();
         } catch (Throwable t) {

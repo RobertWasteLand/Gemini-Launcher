@@ -15,4 +15,12 @@ public final class Core {
     public float getZoom(int playerIndex) {
         return 1.0f;
     }
+
+    public String getVersion() {
+        return null;
+    }
+
+    public boolean getUseOpenGL21() {
+        return false;
+    }
 }

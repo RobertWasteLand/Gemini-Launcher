@@ -4,13 +4,15 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Properties;
 
 final class GM_Settings {
     static final String GM_File_Name = "GM_Environment.cfg";
     static final int GM_Debug_Views = 6;
     private static final long GM_Poll_Nanos = 1_000_000_000L;
-    private static final GM_Settings GM_Default = new GM_Settings(0L, false, 0, GM_Defaults());
+    private static final boolean GM_Dev = Boolean.getBoolean("GL_Dev");
+    private static final GM_Settings GM_Default = new GM_Settings(0L, false, 0, GM_Defaults(), null);
 
     final long generation;
     final boolean bypass;
@@ -18,6 +20,7 @@ final class GM_Settings {
     final boolean screen;
     final boolean depth;
     final boolean field;
+    final String failTest;
     private final int[] values;
 
     private static volatile GM_Settings GM_Current = GM_Default;
@@ -27,11 +30,12 @@ final class GM_Settings {
     private static long GM_Last_Modified = Long.MIN_VALUE;
     private static long GM_Last_Size = Long.MIN_VALUE;
 
-    private GM_Settings(long generation, boolean bypass, int debug, int[] values) {
+    private GM_Settings(long generation, boolean bypass, int debug, int[] values, String failTest) {
         this.generation = generation;
         this.bypass = bypass;
         this.debug = debug;
         this.values = values;
+        this.failTest = failTest;
         boolean views = bypass || debug > 0;
         this.screen = views || GM_Any(values, GM_Features.GM_Fog, GM_Features.GM_Halos, GM_Features.GM_Shadows, GM_Features.GM_Shafts,
             GM_Features.GM_Reflections, GM_Features.GM_Glints, GM_Features.GM_Glow, GM_Features.GM_Grade, GM_Features.GM_Vignette);
@@ -51,6 +55,11 @@ final class GM_Settings {
 
     static GM_Settings GM_Get() {
         return GM_Current;
+    }
+
+    static boolean GM_Test(String spot) {
+        String test = GM_Current.failTest;
+        return test != null && test.equals(spot);
     }
 
     int GM_Value(int feature, int fallback) {
@@ -118,6 +127,9 @@ final class GM_Settings {
         if (next.debug != previous.debug) {
             text.append(" GM_Debug ").append(next.debug);
         }
+        if (!Objects.equals(next.failTest, previous.failTest)) {
+            text.append(" GM_Fail_Test ").append(next.failTest == null ? "-" : next.failTest);
+        }
         for (int i = 0; i < next.values.length; i++) {
             if (next.values[i] != previous.values[i]) {
                 text.append(' ').append(GM_Features.GM_List[i].id).append(' ').append(next.values[i]);
@@ -154,7 +166,9 @@ final class GM_Settings {
             values[i] = (int) Math.max(feature.min, Math.min(feature.max, value));
         }
         long debug = GM_Long(properties, "GM_Debug", 0L);
-        return new GM_Settings(GM_Long(properties, "GM_Generation", 0L), GM_Long(properties, "GM_Bypass", 0L) > 0L, debug < 0L || debug > GM_Debug_Views ? 0 : (int) debug, values);
+        String test = GM_Dev ? properties.getProperty("GM_Fail_Test") : null;
+        test = test == null || test.isBlank() ? null : test.trim();
+        return new GM_Settings(GM_Long(properties, "GM_Generation", 0L), GM_Long(properties, "GM_Bypass", 0L) > 0L, debug < 0L || debug > GM_Debug_Views ? 0 : (int) debug, values, test);
     }
 
     private static long GM_Long(Properties properties, String key, long fallback) {

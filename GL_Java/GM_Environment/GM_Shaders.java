@@ -212,6 +212,10 @@ final class GM_Shaders {
             return;
         }
         if (GM_Screen != null) {
+            if (!((zombie.core.opengl.Shader) GM_Screen).isCompiled()) {
+                GM_Fail("the screen shader stopped compiling", new IllegalStateException(GM_Name));
+                return;
+            }
             if (GM_Settings.GM_Get().screen) {
                 if (current != GM_Screen) {
                     GM_Vanilla = current;
@@ -240,8 +244,13 @@ final class GM_Shaders {
                 DebugLog.setLogEnabled(DebugType.Shader, true);
             }
             boolean passes;
+            int fx = -1;
             try {
                 shader.Start();
+                int program = GL11.glGetInteger(0x8B8D);
+                if (program != 0) {
+                    fx = GL20.glGetUniformLocation(program, "GM_Fx");
+                }
                 shader.End();
                 passes = GM_Pass.GM_Create();
             } finally {
@@ -255,6 +264,10 @@ final class GM_Shaders {
             }
             if (!passes) {
                 GM_Fail("render passes did not compile, keeping the game's screen pass", new IllegalStateException(GM_Name));
+                return;
+            }
+            if (fx < 0) {
+                GM_Fail("the pack's screen shader is older than this launcher, so the screen stays vanilla until the pack updates", new IllegalStateException(GM_Name));
                 return;
             }
             GM_Screen = shader;
@@ -557,18 +570,25 @@ final class GM_Shaders {
             return;
         }
         int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Depth);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Depth_Texture());
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Rays);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Rays_Texture());
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Bloom);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Bloom_Texture());
-        GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_FogTex);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
-        GM_Field.GM_Data field = GM_Field.GM_Upload(GM_Unit_Field, GM_Unit_Bank);
-        Texture.lastTextureID = -1;
-        SpriteRenderer.ringBuffer.restoreBoundTextures = true;
-        GL13.glActiveTexture(unit);
+        GM_Field.GM_Data field;
+        try {
+            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Depth);
+            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Depth_Texture());
+            if (GM_Settings.GM_Test("screen")) {
+                throw new IllegalStateException("test failure: screen");
+            }
+            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Rays);
+            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Rays_Texture());
+            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Bloom);
+            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Bloom_Texture());
+            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_FogTex);
+            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
+            field = GM_Field.GM_Upload(GM_Unit_Field, GM_Unit_Bank);
+        } finally {
+            Texture.lastTextureID = -1;
+            SpriteRenderer.ringBuffer.restoreBoundTextures = true;
+            GL13.glActiveTexture(unit);
+        }
         GL20.glUniform1i(locs.depth, GM_Unit_Depth);
         GL20.glUniform1i(GM_Loc_Rays, GM_Unit_Rays);
         GL20.glUniform1i(GM_Loc_Bloom, GM_Unit_Bloom);
