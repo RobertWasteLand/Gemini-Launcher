@@ -107,6 +107,8 @@ final class GM_Shore {
         Set<IsoChunk> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         int squares = 0;
         int chunks = 0;
+        int checked = 0;
+        int maps = 0;
         int width = IsoChunkMap.chunkGridWidth;
         int players = Math.min(IsoPlayer.numPlayers, cell.chunkMap.length);
         for (int n = 0; n < players; n++) {
@@ -114,12 +116,14 @@ final class GM_Shore {
             if (map == null || map.ignore) {
                 continue;
             }
+            maps++;
             for (int cy = 0; cy < width; cy++) {
                 for (int cx = 0; cx < width; cx++) {
                     IsoChunk chunk = map.getChunk(cx, cy);
                     if (chunk == null || !seen.add(chunk)) {
                         continue;
                     }
+                    checked++;
                     int count = GM_Refresh_Chunk(chunk);
                     if (count > 0) {
                         chunk.invalidateRenderChunkLevel(0, FBORenderChunk.DIRTY_REDRAW);
@@ -129,7 +133,7 @@ final class GM_Shore {
                 }
             }
         }
-        System.out.println("[GL_Java] GM_Environment shore refreshed, " + squares + " squares in " + chunks + " chunks, "
+        System.out.println("[GL_Java] GM_Environment shore refreshed, " + squares + " squares in " + chunks + " chunks (" + checked + " chunks checked on " + maps + " of " + IsoPlayer.numPlayers + " player maps, grid " + width + "), "
             + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1.0e6) + " ms");
     }
 

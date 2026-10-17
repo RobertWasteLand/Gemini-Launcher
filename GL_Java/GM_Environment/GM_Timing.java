@@ -28,6 +28,31 @@ final class GM_Timing {
     private static final int GL_QUERY_RESULT = 0x8866;
     private static final int GL_QUERY_RESULT_AVAILABLE = 0x8867;
     private static final String[] GM_Names = {"depth", "fog", "rays", "bloom", "screen"};
+    static final int GM_Part_Squares = 0;
+    static final int GM_Part_Floors = 1;
+    static final int GM_Part_Spread = 2;
+    static final int GM_Part_Corner = 3;
+    static final int GM_Part_Reach = 4;
+    static final int GM_Part_Land = 5;
+    static final int GM_Part_Encode = 6;
+    static final int GM_Why_Reset = 0;
+    static final int GM_Why_Timer = 1;
+    static final int GM_Why_Moved = 2;
+    private static final String[] GM_Field_Parts = {"squares", "floors", "spread", "corner", "reach", "land", "encode"};
+    private static final long[] GM_Field_Sum = new long[GM_Field_Parts.length];
+    private static final long[] GM_Field_Max = new long[GM_Field_Parts.length];
+    private static final int[] GM_Field_Why = new int[3];
+    private static final Object GM_Field_Lock = new Object();
+    private static long GM_Field_Main_Sum;
+    private static long GM_Field_Main_Max;
+    private static long GM_Field_Tick_Max;
+    private static long GM_Field_Work_Sum;
+    private static long GM_Field_Work_Max;
+    private static int GM_Field_Works;
+    private static long GM_Field_Missing;
+    private static int GM_Field_Builds;
+    private static int GM_Field_Same;
+    private static long GM_Field_Since;
 
     private static final class GM_End_Draw extends TextureDraw.GenericDrawer {
         @Override
@@ -164,6 +189,90 @@ final class GM_Timing {
         if (GM_On) {
             GM_Cpu_Bind.GM_Add(System.nanoTime() - start);
         }
+    }
+
+    static long GM_Field_Part(int part, long start) {
+        if (!GM_On) {
+            return 0L;
+        }
+        long now = System.nanoTime();
+        long spent = now - start;
+        synchronized (GM_Field_Lock) {
+            GM_Field_Sum[part] += spent;
+            if (spent > GM_Field_Max[part]) {
+                GM_Field_Max[part] = spent;
+            }
+        }
+        return now;
+    }
+
+    static void GM_Field_Worked(long start) {
+        if (!GM_On) {
+            return;
+        }
+        long spent = System.nanoTime() - start;
+        synchronized (GM_Field_Lock) {
+            GM_Field_Work_Sum += spent;
+            if (spent > GM_Field_Work_Max) {
+                GM_Field_Work_Max = spent;
+            }
+            GM_Field_Works++;
+        }
+    }
+
+    static void GM_Field_Built(int why, long spent, long slowest, boolean same, int missing) {
+        if (!GM_On) {
+            return;
+        }
+        long now = System.nanoTime();
+        StringBuilder line;
+        synchronized (GM_Field_Lock) {
+            GM_Field_Main_Sum += spent;
+            if (spent > GM_Field_Main_Max) {
+                GM_Field_Main_Max = spent;
+            }
+            if (slowest > GM_Field_Tick_Max) {
+                GM_Field_Tick_Max = slowest;
+            }
+            GM_Field_Why[why]++;
+            GM_Field_Builds++;
+            if (same) {
+                GM_Field_Same++;
+            }
+            GM_Field_Missing += missing;
+            if (GM_Field_Since == 0L) {
+                GM_Field_Since = now;
+            }
+            if (now - GM_Field_Since < GM_Window) {
+                return;
+            }
+            int builds = GM_Field_Builds;
+            int works = GM_Field_Works;
+            line = new StringBuilder("[GL_Java] GM field ms: main ");
+            line.append(GM_Ms(GM_Field_Main_Sum / 1.0e6 / builds)).append(" (max ").append(GM_Ms(GM_Field_Main_Max / 1.0e6)).append(") per build, at most ").append(GM_Ms(GM_Field_Tick_Max / 1.0e6)).append(" in one tick | worker ");
+            line.append(works > 0 ? GM_Ms(GM_Field_Work_Sum / 1.0e6 / works) + " (max " + GM_Ms(GM_Field_Work_Max / 1.0e6) + ")" : "-").append(" |");
+            for (int k = 0; k < GM_Field_Parts.length; k++) {
+                int count = k <= GM_Part_Floors ? builds : works;
+                line.append(' ').append(GM_Field_Parts[k]).append(' ');
+                line.append(count > 0 ? GM_Ms(GM_Field_Sum[k] / 1.0e6 / count) + " (max " + GM_Ms(GM_Field_Max[k] / 1.0e6) + ")" : "-");
+            }
+            line.append(" | ").append(builds).append(" builds: ").append(GM_Field_Why[GM_Why_Reset]).append(" reset, ").append(GM_Field_Why[GM_Why_Timer]).append(" timer, ").append(GM_Field_Why[GM_Why_Moved]).append(" moved, ");
+            line.append(GM_Field_Same).append(" unchanged, ").append(works).append(" worked, ").append(GM_Field_Missing / builds).append(" unloaded squares");
+            Arrays.fill(GM_Field_Sum, 0L);
+            Arrays.fill(GM_Field_Max, 0L);
+            Arrays.fill(GM_Field_Why, 0);
+            GM_Field_Main_Sum = 0L;
+            GM_Field_Main_Max = 0L;
+            GM_Field_Tick_Max = 0L;
+            GM_Field_Work_Sum = 0L;
+            GM_Field_Work_Max = 0L;
+            GM_Field_Missing = 0L;
+            GM_Field_Builds = 0;
+            GM_Field_Works = 0;
+            GM_Field_Same = 0;
+            GM_Field_Since = now;
+        }
+        System.out.println(line);
     }
 
     static void GM_Queue_End() {

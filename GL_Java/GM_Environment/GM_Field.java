@@ -2,6 +2,7 @@ package GL_Java.GM_Environment;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.lwjgl.opengl.GL11;
@@ -22,6 +23,7 @@ final class GM_Field {
     static final int GM_Fetch_Radius = 6;
     static final float GM_Range = 8.0f;
     static final int GM_Rebuild_Ticks = 120;
+    static final int GM_Rows_Per_Tick = 10;
     static final float GM_Rebuild_Move = 24.0f;
     static final int GM_Unit = 3;
     static final int GM_Unit_Bank = 4;
@@ -65,12 +67,29 @@ final class GM_Field {
     private static final float[] GM_Scratch = new float[GM_Size * GM_Size];
     private static final float[] GM_Fetch = new float[GM_Size * GM_Size];
     private static final float[] GM_Land = new float[GM_Size * GM_Size];
+    private static final IsoGridSquare[] GM_Squares = new IsoGridSquare[GM_Rows_Per_Tick * GM_Size];
+    private static final int GM_Water = -1;
+    private static final int GM_Unknown = -2;
+    private static final Semaphore GM_Go = new Semaphore(0);
+    private static volatile boolean GM_Busy;
+    private static volatile Throwable GM_Worker_Error;
+    private static Thread GM_Worker;
+    private static int GM_Job_X0;
+    private static int GM_Job_Y0;
     static final float GM_Near_Range = 7.0f;
     private static int GM_Ticks;
     private static int GM_Built_Tick = Integer.MIN_VALUE;
     private static float GM_Center_X;
     private static float GM_Center_Y;
     private static boolean GM_Built;
+    private static int GM_Row = -1;
+    private static int GM_Gather_X0;
+    private static int GM_Gather_Y0;
+    private static int GM_Why;
+    private static boolean GM_Same;
+    private static int GM_Missing;
+    private static long GM_Gather_Spent;
+    private static long GM_Gather_Slowest;
 
     private static GM_Data GM_Current;
     private static int GM_Texture;
@@ -89,48 +108,138 @@ final class GM_Field {
 
     static void GM_Invalidate() {
         GM_Built = false;
+        GM_Row = -1;
     }
 
     static void GM_Tick() {
+        Throwable failed = GM_Worker_Error;
+        if (failed != null) {
+            GM_Worker_Error = null;
+            throw new IllegalStateException("field worker failed", failed);
+        }
         GM_Ticks++;
         IsoPlayer player = IsoPlayer.getInstance();
         if (player == null) {
-            return;
-        }
-        float px = player.getX();
-        float py = player.getY();
-        if (GM_Built && GM_Ticks - GM_Built_Tick < GM_Rebuild_Ticks && Math.abs(px - GM_Center_X) < GM_Rebuild_Move && Math.abs(py - GM_Center_Y) < GM_Rebuild_Move) {
             return;
         }
         IsoWorld world = IsoWorld.instance;
         if (world == null || world.currentCell == null) {
             return;
         }
-        GM_Build(world.currentCell, (int) Math.floor(px), (int) Math.floor(py));
-        GM_Built = true;
+        if (GM_Row < 0) {
+            float px = player.getX();
+            float py = player.getY();
+            boolean moved = Math.abs(px - GM_Center_X) >= GM_Rebuild_Move || Math.abs(py - GM_Center_Y) >= GM_Rebuild_Move;
+            if (GM_Built && !moved && GM_Ticks - GM_Built_Tick < GM_Rebuild_Ticks) {
+                return;
+            }
+            if (GM_Busy) {
+                return;
+            }
+            GM_Begin(px, py, !GM_Built ? GM_Timing.GM_Why_Reset : moved ? GM_Timing.GM_Why_Moved : GM_Timing.GM_Why_Timer);
+        }
+        GM_Slice(world.currentCell);
+    }
+
+    private static void GM_Begin(float px, float py, int why) {
+        int x0 = (int) Math.floor(px) - GM_Size / 2;
+        int y0 = (int) Math.floor(py) - GM_Size / 2;
+        GM_Gather_X0 = x0;
+        GM_Gather_Y0 = y0;
+        GM_Why = why;
+        GM_Same = GM_Built && x0 == GM_Job_X0 && y0 == GM_Job_Y0;
+        GM_Missing = 0;
+        GM_Gather_Spent = 0L;
+        GM_Gather_Slowest = 0L;
+        GM_Row = 0;
         GM_Built_Tick = GM_Ticks;
         GM_Center_X = px;
         GM_Center_Y = py;
     }
 
-    private static void GM_Build(IsoCell cell, int cx, int cy) {
+    private static void GM_Slice(IsoCell cell) {
         int s = GM_Size;
-        int x0 = cx - s / 2;
-        int y0 = cy - s / 2;
+        int first = GM_Row;
+        int last = Math.min(s, first + GM_Rows_Per_Tick);
+        int x0 = GM_Gather_X0;
+        int y0 = GM_Gather_Y0;
+        int[] colour = GM_Colour;
+        IsoGridSquare[] squares = GM_Squares;
+        long start = GM_Timing.GM_Cpu_Start();
+        for (int j = first; j < last; j++) {
+            for (int i = 0; i < s; i++) {
+                squares[(j - first) * s + i] = cell.getGridSquare(x0 + i, y0 + j, 0);
+            }
+        }
+        long mark = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Squares, start);
+        int base = first * s;
+        int count = (last - first) * s;
+        for (int n = 0; n < count; n++) {
+            IsoGridSquare square = squares[n];
+            squares[n] = null;
+            if (square == null) {
+                GM_Missing++;
+            }
+            int value = square == null ? GM_Unknown : square.has(IsoFlagType.water) ? GM_Water : GM_Bank.GM_Colour(GM_Floor_Sprite(square));
+            if (value != colour[base + n]) {
+                colour[base + n] = value;
+                GM_Same = false;
+            }
+        }
+        long spent = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Floors, mark) - start;
+        GM_Gather_Spent += spent;
+        GM_Gather_Slowest = Math.max(GM_Gather_Slowest, spent);
+        GM_Row = last;
+        if (last < s) {
+            return;
+        }
+        GM_Row = -1;
+        GM_Built = true;
+        GM_Timing.GM_Field_Built(GM_Why, GM_Gather_Spent, GM_Gather_Slowest, GM_Same, GM_Missing);
+        if (GM_Same) {
+            return;
+        }
+        GM_Job_X0 = x0;
+        GM_Job_Y0 = y0;
+        if (GM_Worker == null) {
+            Thread worker = new Thread(GM_Field::GM_Work_Loop, "GM_Field");
+            worker.setDaemon(true);
+            worker.setPriority(Thread.NORM_PRIORITY - 1);
+            worker.start();
+            GM_Worker = worker;
+        }
+        GM_Busy = true;
+        GM_Go.release();
+    }
+
+    private static void GM_Work_Loop() {
+        while (true) {
+            GM_Go.acquireUninterruptibly();
+            try {
+                GM_Work(GM_Job_X0, GM_Job_Y0);
+            } catch (Throwable t) {
+                GM_Worker_Error = t;
+            }
+            GM_Busy = false;
+        }
+    }
+
+    private static void GM_Work(int x0, int y0) {
+        int s = GM_Size;
         float far = GM_Range * 4.0f;
         float[] d = GM_Dist;
         int[] src = GM_Source;
         int[] colour = GM_Colour;
-        for (int j = 0; j < s; j++) {
-            for (int i = 0; i < s; i++) {
-                IsoGridSquare square = cell.getGridSquare(x0 + i, y0 + j, 0);
-                boolean water = square == null || square.has(IsoFlagType.water);
-                int k = j * s + i;
-                d[k] = water ? far : 0.0f;
-                src[k] = water ? -1 : k;
-                colour[k] = water ? GM_Bank.GM_Default : GM_Bank.GM_Colour(GM_Floor_Sprite(square));
-            }
+        long start = GM_Timing.GM_Cpu_Start();
+        if (GM_Settings.GM_Test("worker")) {
+            throw new IllegalStateException("test failure: worker");
         }
+        for (int k = 0; k < s * s; k++) {
+            boolean water = colour[k] < 0;
+            d[k] = water ? far : 0.0f;
+            src[k] = water ? -1 : k;
+        }
+        long mark = start;
         for (int j = 0; j < s; j++) {
             for (int i = 0; i < s; i++) {
                 int k = j * s + i;
@@ -171,6 +280,7 @@ final class GM_Field {
                 }
             }
         }
+        mark = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Spread, mark);
         float[] c = GM_Corner;
         for (int j = 0; j < s; j++) {
             for (int i = 0; i < s; i++) {
@@ -230,6 +340,7 @@ final class GM_Field {
                 }
             }
         }
+        mark = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Corner, mark);
         float[] f = GM_Fetch;
         int r = GM_Fetch_Radius;
         for (int j = 0; j < s; j++) {
@@ -254,9 +365,10 @@ final class GM_Field {
                 f[j * s + i] = m;
             }
         }
+        mark = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Reach, mark);
         float[] land = GM_Land;
         for (int k = 0; k < s * s; k++) {
-            land[k] = d[k] == 0.0f ? far : 0.0f;
+            land[k] = colour[k] == GM_Water ? 0.0f : far;
         }
         for (int j = 0; j < s; j++) {
             for (int i = 0; i < s; i++) {
@@ -298,6 +410,7 @@ final class GM_Field {
                 }
             }
         }
+        mark = GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Land, mark);
         ByteBuffer pixels = GM_Buffers[GM_Buffer_Next];
         ByteBuffer bank = GM_Bank_Buffers[GM_Buffer_Next];
         if (pixels == null) {
@@ -317,6 +430,7 @@ final class GM_Field {
                 pixels.put((byte) Math.round(dist * 255.0f));
                 pixels.put((byte) Math.round(fetch * 255.0f));
                 float near = 0.0f;
+                int known = 0;
                 int cornerN = 0;
                 for (int dj = -1; dj <= 0; dj++) {
                     int tj = j + dj;
@@ -329,11 +443,14 @@ final class GM_Field {
                             continue;
                         }
                         near += Math.max(0.0f, 1.0f - Math.min(land[tj * s + ti], GM_Near_Range) / GM_Near_Range);
+                        if (colour[tj * s + ti] != GM_Unknown) {
+                            known++;
+                        }
                         cornerN++;
                     }
                 }
                 pixels.put((byte) Math.round((cornerN > 0 ? near / cornerN : 0.0f) * 255.0f));
-                pixels.put((byte) 255);
+                pixels.put((byte) Math.round((cornerN > 0 ? known / (float) cornerN : 0.0f) * 255.0f));
                 float red = 0.0f;
                 float green = 0.0f;
                 float blue = 0.0f;
@@ -350,7 +467,7 @@ final class GM_Field {
                         }
                         int tile = tj * s + ti;
                         int from = src[tile] >= 0 ? src[tile] : tile;
-                        int rgb = colour[from];
+                        int rgb = colour[from] < 0 ? GM_Bank.GM_Default : colour[from];
                         float weight = 1.0f / (d[tile] + 0.5f);
                         red += ((rgb >> 16) & 0xFF) * weight;
                         green += ((rgb >> 8) & 0xFF) * weight;
@@ -372,6 +489,8 @@ final class GM_Field {
         }
         pixels.flip();
         bank.flip();
+        GM_Timing.GM_Field_Part(GM_Timing.GM_Part_Encode, mark);
+        GM_Timing.GM_Field_Worked(start);
         GM_Pending.set(new GM_Data(x0, y0, pixels, bank));
     }
 
