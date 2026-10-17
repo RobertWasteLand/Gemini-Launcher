@@ -11,4 +11,9 @@ public final class GM_Queue_Patch {
     public static void GM_Enter() {
         GM_Environment.GM_Screen_Queue();
     }
+
+    @Patch.OnExit
+    public static void GM_Exit() {
+        GM_Environment.GM_Screen_Done();
+    }
 }

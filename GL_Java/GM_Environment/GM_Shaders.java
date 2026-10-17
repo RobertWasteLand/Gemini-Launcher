@@ -49,6 +49,15 @@ final class GM_Shaders {
     static final int GM_Unit_Field = 4;
     static final int GM_Unit_Bank = 5;
     static final int GM_Unit_FogTex = 6;
+    static final int GM_Fx_Fog = 0;
+    static final int GM_Fx_Wake = 2;
+    static final int GM_Fx_Shadows = 3;
+    static final int GM_Fx_Shafts = 5;
+    static final int GM_Fx_Glow = 6;
+    private static final int[] GM_Fx_Features = {
+        GM_Features.GM_Fog, GM_Features.GM_Halos, GM_Features.GM_Fog_Wake, GM_Features.GM_Shadows, GM_Features.GM_Reflections,
+        GM_Features.GM_Shafts, GM_Features.GM_Glow, GM_Features.GM_Grade, GM_Features.GM_Glints, GM_Features.GM_Vignette
+    };
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_ACTIVE_TEXTURE = 0x84E0;
@@ -85,6 +94,10 @@ final class GM_Shaders {
         float playerVY;
         float fogX;
         float fogY;
+        boolean bypass;
+        boolean depth;
+        int debug;
+        final float[] fx = new float[GM_Fx_Features.length];
         final float[] lamps = new float[GM_Lamp_Count * 4];
         final float[] lampColours = new float[GM_Lamp_Count * 3];
     }
@@ -145,7 +158,6 @@ final class GM_Shaders {
     private static float GM_Clock;
     private static double GM_Drift_X;
     private static double GM_Drift_Y;
-    private static final float[] GM_Fx = {1, 1, 1, 1, 1, 0, 1, 1, 1, 1};
     private static final GM_Locs GM_Screen_Locs = new GM_Locs();
     private static int GM_Loc_Rays = -1;
     private static int GM_Loc_Bloom = -1;
@@ -158,6 +170,8 @@ final class GM_Shaders {
     private static int GM_Loc_Fx = -1;
     private static int GM_Loc_Lamps = -1;
     private static int GM_Loc_LampCol = -1;
+    private static int GM_Loc_Bypass = -1;
+    private static int GM_Loc_Debug = -1;
 
     private GM_Shaders() {
     }
@@ -198,9 +212,13 @@ final class GM_Shaders {
             return;
         }
         if (GM_Screen != null) {
-            if (current != GM_Screen) {
-                GM_Vanilla = current;
-                SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Screen;
+            if (GM_Settings.GM_Get().screen) {
+                if (current != GM_Screen) {
+                    GM_Vanilla = current;
+                    SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Screen;
+                }
+            } else if (current == GM_Screen && GM_Vanilla != null) {
+                SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Vanilla;
             }
             return;
         }
@@ -240,7 +258,9 @@ final class GM_Shaders {
                 return;
             }
             GM_Screen = shader;
-            SceneShaderStore.weatherShader = shader;
+            if (GM_Settings.GM_Get().screen) {
+                SceneShaderStore.weatherShader = shader;
+            }
             System.out.println("[GL_Java] GM_Environment shaders on");
         } catch (Throwable t) {
             GM_Fail("screen shader install failed on the render thread", t);
@@ -279,6 +299,7 @@ final class GM_Shaders {
         GM_Seq++;
         int slot = GM_Seq % GM_Ring_Size;
         int players = Math.max(1, Math.min(GM_Players, IsoPlayer.numPlayers));
+        GM_Settings settings = GM_Settings.GM_Get();
         GM_Frame[] frames = new GM_Frame[players];
         for (int p = 0; p < players; p++) {
             GM_Frame frame = GM_Ring[slot][p];
@@ -291,6 +312,12 @@ final class GM_Shaders {
             frame.windVY = windVY;
             frame.driftX = (float) GM_Drift_X;
             frame.driftY = (float) GM_Drift_Y;
+            frame.bypass = settings.bypass;
+            frame.depth = settings.depth;
+            frame.debug = settings.debug;
+            for (int k = 0; k < GM_Fx_Features.length; k++) {
+                frame.fx[k] = settings.GM_Value(GM_Fx_Features[k], 1);
+            }
             GM_Frame_Fill(frame, p, dt, climate);
             frames[p] = frame;
         }
@@ -523,6 +550,8 @@ final class GM_Shaders {
             GM_Loc_Fx = GL20.glGetUniformLocation(program, "GM_Fx");
             GM_Loc_Lamps = GL20.glGetUniformLocation(program, "GM_Lamps");
             GM_Loc_LampCol = GL20.glGetUniformLocation(program, "GM_LampCol");
+            GM_Loc_Bypass = GL20.glGetUniformLocation(program, "GM_Bypass");
+            GM_Loc_Debug = GL20.glGetUniformLocation(program, "GM_Debug");
         }
         if (locs.view < 0) {
             return;
@@ -552,9 +581,11 @@ final class GM_Shaders {
         GL20.glUniform1f(GM_Loc_Night, frame.night);
         GL20.glUniform3fv(GM_Loc_WB, frame.balance);
         GL20.glUniform4f(GM_Loc_Str, GM_Refl_Strength, GM_Bloom_Strength, 0.0f, 0.0f);
-        GL20.glUniform1fv(GM_Loc_Fx, GM_Fx);
+        GL20.glUniform1fv(GM_Loc_Fx, frame.fx);
         GL20.glUniform4fv(GM_Loc_Lamps, frame.lamps);
         GL20.glUniform3fv(GM_Loc_LampCol, frame.lampColours);
+        GL20.glUniform1f(GM_Loc_Bypass, frame.bypass ? 1.0f : 0.0f);
+        GL20.glUniform1f(GM_Loc_Debug, frame.debug);
     }
 
     static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, GM_Locs locs) {
@@ -593,19 +624,20 @@ final class GM_Shaders {
             GL20.glUniform4f(locs.player, frame.playerX, frame.playerY, frame.playerVX, frame.playerVY);
         }
         if (locs.wake >= 0) {
-            GL20.glUniform1f(locs.wake, GM_Fx[2]);
+            GL20.glUniform1f(locs.wake, frame.fx[GM_Fx_Wake]);
         }
     }
 
     static boolean GM_Fog_Vanilla(boolean result) {
-        if (!result || !GM_Active() || GM_Fx[0] < 0.5f) {
+        GM_Settings settings = GM_Settings.GM_Get();
+        if (!result || !GM_Active() || !settings.GM_On(GM_Features.GM_Fog) || settings.bypass) {
             return result;
         }
         return false;
     }
 
     static void GM_Water_Depth(boolean shore, int count) {
-        if (shore || count <= 0 || !GM_Active()) {
+        if (shore || count <= 0 || !GM_Active() || !GM_Settings.GM_Get().depth) {
             return;
         }
         GM_Pass.GM_Water_Depth(count);

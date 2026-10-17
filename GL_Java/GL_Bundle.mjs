@@ -94,9 +94,21 @@ function GL_Stubs_Build() {
   return classes;
 }
 
+function GL_Resources_Copy(name, classes) {
+  const source = join(GL_Source, name);
+  const target = join(classes, "GL_Java", name);
+  for (const entry of readdirSync(source, { withFileTypes: true })) {
+    if (entry.isFile() && !entry.name.endsWith(".java")) {
+      mkdirSync(target, { recursive: true });
+      copyFileSync(join(source, entry.name), join(target, entry.name));
+    }
+  }
+}
+
 function GL_Addon_Build(name, stubs) {
   const classpath = [join(GL_Bundle, "ZombieBuddy.jar"), stubs].join(process.platform === "win32" ? ";" : ":");
   const classes = GL_Java_Compile(name, classpath);
+  GL_Resources_Copy(name, classes);
   const jar = join(GL_Addons, `${name}.jar`);
   execFileSync(GL_Tool_Path("jar"), ["--create", "--date", GL_Date, "--file", jar, "-C", classes, "."], { stdio: "inherit" });
   console.log(`${name}.jar: built (${GL_Hash_Get(readFileSync(jar))})`);

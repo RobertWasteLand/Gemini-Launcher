@@ -4,10 +4,14 @@ use std::path::{Path, PathBuf};
 
 use crate::GL_Addons::{GL_Addon, GL_Addon_Enabled, GL_Addon_Find, GL_Addon_Jar, GL_Addons, GL_Addons_Active, GL_Addons_Sorted};
 use crate::GL_Buddy::{
-    GL_Buddy_Arg, GL_Buddy_Clean, GL_Buddy_Files, GL_Buddy_Prepare, GL_Hash_File, GL_Reason_Configured, GL_Reason_Foreign,
+    GL_Buddy_Arg, GL_Buddy_Clean, GL_Buddy_Files, GL_Buddy_Prepare, GL_Hash_File, GL_Key, GL_Reason_Configured, GL_Reason_Foreign,
     GL_Reason_Long,
 };
 use crate::GL_Config::{GL_App_Identifier, GL_Settings};
+use crate::GL_Features::{
+    GL_Cfg_File, GL_Cfg_Text, GL_Cfg_Write, GL_Feature_Find, GL_Feature_Kind, GL_Feature_Valid, GL_Feature_Value, GL_Features, GL_Features_Parse, GL_Features_Text, GL_Preset_Apply,
+    GL_Preset_Gemini, GL_Preset_Vanilla, GL_Preset_Vanilla_Get,
+};
 use crate::GL_Memory::{GL_Memory_Auto, GL_Memory_Choices, GL_Memory_Limit, GL_Memory_Match, GL_Memory_Parse, GL_Memory_Resolve};
 use crate::GL_Options::{GL_Arg_Debug, GL_Launch_Build, GL_Option_Debug, GL_Option_Memory, GL_Option_Priority};
 use crate::GL_Process::GL_Game_Args;
@@ -342,5 +346,104 @@ fn GL_Test_Buddy_Leftovers() {
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
     assert_eq!(left, vec!["ProjectZomboid64.json".to_owned()]);
+    let _ = fs::remove_dir_all(&game);
+}
+
+#[test]
+fn GL_Test_Features_Shipped() {
+    let list = GL_Features_Parse(GL_Features_Text).expect("shipped feature list parses");
+    assert_eq!(list.len(), GL_Features().len());
+    assert!(list.len() >= 13);
+    let water = GL_Feature_Find("GM_Water").expect("GM_Water listed");
+    assert_eq!(water.kind, GL_Feature_Kind::Switch);
+    assert_eq!(water.group, "Water");
+    let style = GL_Feature_Find("GM_Water_Style").expect("GM_Water_Style listed");
+    assert_eq!((style.kind, style.min, style.max), (GL_Feature_Kind::Slider, 0, 100));
+    assert!(GL_Feature_Find("GM_Water_Shore").is_some());
+    let shadows = GL_Feature_Find("GM_Shadows").expect("GM_Shadows listed");
+    assert_eq!((shadows.kind, shadows.max, shadows.default), (GL_Feature_Kind::Level, 2, 2));
+    assert_eq!(GL_Feature_Find("GM_Grade").map(|f| f.default), Some(0));
+}
+
+#[test]
+fn GL_Test_Features_Parse() {
+    assert!(GL_Features_Parse("GM_A | switch | 1 | live | Group | Name A\n\nGM_B | slider 0 10 | 5 | launch | Group | Name B").is_ok());
+    for bad in [
+        "GM_A | switch | 2 | live | Group | Name",
+        "GM_A | level | 1 | sometimes | Group | Name",
+        "GM_A | slider 10 0 | 5 | live | Group | Name",
+        "GM_A | slider 0 | 0 | live | Group | Name",
+        "GM_A | dial | 1 | live | Group | Name",
+        "GM_A | switch | 1 | live | Group |",
+        "GM_A | switch | 1 | live | Group",
+        "GM_A | switch | 1 | live | Group | Name\nGM_A | switch | 0 | live | Group | Again",
+    ] {
+        assert!(GL_Features_Parse(bad).is_err(), "{bad}");
+    }
+}
+
+#[test]
+fn GL_Test_Features_Values() {
+    let style = GL_Feature_Find("GM_Water_Style").unwrap();
+    let mut s = GL_Settings::default();
+    assert_eq!(GL_Feature_Value(&s, style), style.default);
+    s.options.insert(style.id.clone(), "80".to_owned());
+    assert_eq!(GL_Feature_Value(&s, style), 80);
+    s.options.insert(style.id.clone(), "150".to_owned());
+    assert_eq!(GL_Feature_Value(&s, style), style.default);
+    s.options.insert(style.id.clone(), "soft".to_owned());
+    assert_eq!(GL_Feature_Value(&s, style), style.default);
+    assert!(GL_Feature_Valid(style, "0") && GL_Feature_Valid(style, "100"));
+    assert!(!GL_Feature_Valid(style, "-1") && !GL_Feature_Valid(style, "101") && !GL_Feature_Valid(style, ""));
+}
+
+#[test]
+fn GL_Test_Features_Presets() {
+    let mut s = GL_Settings::default();
+    GL_Preset_Apply(&mut s, GL_Preset_Vanilla_Get(GL_Preset_Vanilla).unwrap());
+    assert!(GL_Features().iter().all(|f| GL_Feature_Value(&s, f) == f.min));
+    GL_Preset_Apply(&mut s, GL_Preset_Vanilla_Get(GL_Preset_Gemini).unwrap());
+    assert!(GL_Features().iter().all(|f| GL_Feature_Value(&s, f) == f.default));
+    assert!(GL_Preset_Vanilla_Get("bright").is_err());
+}
+
+#[test]
+fn GL_Test_Cfg_Text() {
+    let mut s = GL_Settings::default();
+    s.options.insert("GM_Fog".to_owned(), "0".to_owned());
+    s.options.insert("GM_Water_Style".to_owned(), "80".to_owned());
+    let text = GL_Cfg_Text(&s, 42);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines[0], "GM_Generation=42");
+    assert_eq!(lines.len(), GL_Features().len() + 1);
+    assert!(lines.contains(&"GM_Fog=0"));
+    assert!(lines.contains(&"GM_Water_Style=80"));
+    assert!(lines.contains(&"GM_Grade=0"));
+    assert!(lines.contains(&"GM_Shadows=2"));
+    assert!(text.ends_with('\n'));
+}
+
+#[test]
+fn GL_Test_Cfg_Write() {
+    let game = GL_Test_Dir("Cfg");
+    let s = GL_Settings::default();
+    assert_eq!(GL_Cfg_Write(&game, &s, 1), Ok(None));
+    assert!(!game.join("GL_Java").exists());
+
+    fs::create_dir_all(game.join("GL_Java")).unwrap();
+    let (key, hash) = GL_Cfg_Write(&game, &s, 7).unwrap().unwrap();
+    let path = game.join("GL_Java").join(GL_Cfg_File);
+    assert_eq!(fs::read_to_string(&path).unwrap(), GL_Cfg_Text(&s, 7));
+    assert_eq!(GL_Hash_File(&path).unwrap(), hash);
+    assert_eq!(key, GL_Key(&path));
+    assert!(!game.join("GL_Java").join(format!("{GL_Cfg_File}.GL_Temp")).exists());
+
+    let (_, second) = GL_Cfg_Write(&game, &s, 8).unwrap().unwrap();
+    assert_ne!(second, hash);
+    let mut installed = BTreeMap::new();
+    installed.insert(key, second);
+    GL_Buddy_Clean(&mut installed);
+    assert!(installed.is_empty());
+    assert!(!game.join("GL_Java").exists());
     let _ = fs::remove_dir_all(&game);
 }

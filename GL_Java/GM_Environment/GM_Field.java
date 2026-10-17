@@ -87,6 +87,10 @@ final class GM_Field {
     private GM_Field() {
     }
 
+    static void GM_Invalidate() {
+        GM_Built = false;
+    }
+
     static void GM_Tick() {
         GM_Ticks++;
         IsoPlayer player = IsoPlayer.getInstance();

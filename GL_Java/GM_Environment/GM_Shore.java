@@ -1,18 +1,32 @@
 package GL_Java.GM_Environment;
 
 import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Locale;
+import java.util.Set;
 
+import zombie.characters.IsoPlayer;
+import zombie.iso.IsoCell;
+import zombie.iso.IsoChunk;
+import zombie.iso.IsoChunkMap;
 import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoObject;
+import zombie.iso.IsoPuddlesGeometry;
 import zombie.iso.IsoWaterFlow;
 import zombie.iso.IsoWaterGeometry;
+import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
+import zombie.iso.fboRenderChunk.FBORenderChunk;
 import zombie.iso.sprite.IsoSprite;
 
 final class GM_Shore {
+    private static final IsoDirections[] GM_Around = IsoDirections.values();
     private static Field GM_Shore_Field;
+    private static Field GM_Recalc_Field;
     private static boolean GM_Shore_Failed;
+    private static boolean GM_Recalc_Failed;
 
     private GM_Shore() {
     }
@@ -80,6 +94,98 @@ final class GM_Shore {
             GM_Shore_Failed = true;
             System.out.println("[GL_Java] GM_Environment: extra shore tiles off (" + t + ")");
             return result;
+        }
+    }
+
+    static void GM_Refresh() {
+        IsoWorld world = IsoWorld.instance;
+        IsoCell cell = world == null ? null : world.currentCell;
+        if (cell == null || cell.chunkMap == null) {
+            return;
+        }
+        long start = System.nanoTime();
+        Set<IsoChunk> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        int squares = 0;
+        int chunks = 0;
+        int width = IsoChunkMap.chunkGridWidth;
+        int players = Math.min(IsoPlayer.numPlayers, cell.chunkMap.length);
+        for (int n = 0; n < players; n++) {
+            IsoChunkMap map = cell.chunkMap[n];
+            if (map == null || map.ignore) {
+                continue;
+            }
+            for (int cy = 0; cy < width; cy++) {
+                for (int cx = 0; cx < width; cx++) {
+                    IsoChunk chunk = map.getChunk(cx, cy);
+                    if (chunk == null || !seen.add(chunk)) {
+                        continue;
+                    }
+                    int count = GM_Refresh_Chunk(chunk);
+                    if (count > 0) {
+                        chunk.invalidateRenderChunkLevel(0, FBORenderChunk.DIRTY_REDRAW);
+                        squares += count;
+                        chunks++;
+                    }
+                }
+            }
+        }
+        System.out.println("[GL_Java] GM_Environment shore refreshed, " + squares + " squares in " + chunks + " chunks, "
+            + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1.0e6) + " ms");
+    }
+
+    private static int GM_Refresh_Chunk(IsoChunk chunk) {
+        int count = 0;
+        for (int y = 0; y < 8; y++) {
+            for (int x = 0; x < 8; x++) {
+                IsoGridSquare square = chunk.getGridSquare(x, y, 0);
+                if (square == null || !GM_Candidate(square)) {
+                    continue;
+                }
+                square.clearWater();
+                GM_Puddles_Recalc(square);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean GM_Candidate(IsoGridSquare square) {
+        if (GM_Water(square)) {
+            return false;
+        }
+        IsoObject floor = square.getFloor();
+        IsoSprite sprite = floor == null ? null : floor.getSprite();
+        String name = sprite == null ? null : sprite.getName();
+        if (name == null || !(name.startsWith("blends_natural") || name.startsWith("floors_exterior_natural"))) {
+            return false;
+        }
+        for (IsoDirections direction : GM_Around) {
+            IsoGridSquare next = square.getAdjacentSquare(direction);
+            if (next != null && GM_Water(next)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void GM_Puddles_Recalc(IsoGridSquare square) {
+        if (GM_Recalc_Failed) {
+            return;
+        }
+        try {
+            IsoPuddlesGeometry puddles = square.getPuddles();
+            if (puddles == null) {
+                return;
+            }
+            if (GM_Recalc_Field == null) {
+                Field field = IsoPuddlesGeometry.class.getDeclaredField("recalc");
+                field.setAccessible(true);
+                GM_Recalc_Field = field;
+            }
+            GM_Recalc_Field.setBoolean(puddles, true);
+        } catch (Throwable t) {
+            GM_Recalc_Failed = true;
+            System.out.println("[GL_Java] GM_Environment: puddles on refreshed shore keep their old shape until the area reloads (" + t + ")");
         }
     }
 }

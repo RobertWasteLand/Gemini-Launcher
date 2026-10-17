@@ -7,7 +7,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::GL_Addons::GL_Addon;
 use crate::{GL_Addons, GL_Buddy, GL_Config, GL_Memory, GL_Options, GL_Process, GL_Steam};
-use crate::{GL_Game_Dir, GL_Settings_Change, GL_Settings_Snapshot, GL_State};
+use crate::{GL_Cfg_Update, GL_Game_Dir, GL_Settings_Change, GL_Settings_Snapshot, GL_State};
 
 const GL_Steam_Timeout: Duration = Duration::from_secs(120);
 const GL_Steam_Settle: Duration = Duration::from_secs(3);
@@ -160,6 +160,9 @@ pub fn GL_Game_Launch(app: &AppHandle) -> Result<(), String> {
             Ok(arg) => {
                 plan.jvm.push(arg);
                 loaded = active;
+                if let Err(e) = GL_Cfg_Update(app) {
+                    notes.push(format!("The game's Environment file couldn't be updated ({e})."));
+                }
             }
             Err(reason) => notes.push(GL_Addons_Off(&reason)),
         }

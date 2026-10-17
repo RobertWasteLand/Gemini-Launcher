@@ -323,9 +323,13 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         int prevUnit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
         GL11.glGetIntegerv(GL_VIEWPORT, GM_Viewport);
         try {
-            GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, world.getBufferId());
-            GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GM_Depth_Fbo);
-            GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            GM_Timing.GM_Stamp(GM_Timing.GM_Begin);
+            if (this.frame.depth) {
+                GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, world.getBufferId());
+                GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GM_Depth_Fbo);
+                GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Blit);
             GL11.glDisable(GL_DEPTH_TEST);
             GL11.glDisable(GL_BLEND);
             GL11.glDisable(GL_SCISSOR_TEST);
@@ -335,9 +339,19 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             GL11.glDepthMask(false);
             GL11.glColorMask(true, true, true, true);
             GL30.glBindVertexArray(GM_Vao);
-            GM_Fog_Draw();
-            GM_Rays_Draw();
-            GM_Bloom_Draw(world.getTexture().getID());
+            float[] fx = this.frame.fx;
+            if (fx[GM_Shaders.GM_Fx_Fog] > 0.5f) {
+                GM_Fog_Draw();
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Fog);
+            if (fx[GM_Shaders.GM_Fx_Shadows] > 0.5f || fx[GM_Shaders.GM_Fx_Shafts] > 0.5f) {
+                GM_Rays_Draw();
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Rays);
+            if (fx[GM_Shaders.GM_Fx_Glow] > 0.5f) {
+                GM_Bloom_Draw(world.getTexture().getID());
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Bloom);
         } finally {
             GL30.glBindVertexArray(prevVao);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);

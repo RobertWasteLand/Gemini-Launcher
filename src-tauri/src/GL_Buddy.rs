@@ -90,6 +90,15 @@ fn GL_File_Place(source: &Path, target: &Path) -> io::Result<()> {
     result
 }
 
+pub fn GL_File_Write(target: &Path, bytes: &[u8]) -> io::Result<()> {
+    let temp = GL_Temp_Path(target);
+    let result = fs::write(&temp, bytes).and_then(|_| fs::rename(&temp, target));
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
+}
+
 fn GL_Place_Error(e: io::Error) -> String {
     if e.kind() == io::ErrorKind::PermissionDenied {
         GL_Reason_Blocked.to_owned()

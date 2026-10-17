@@ -10,7 +10,6 @@ pub enum GL_Option_Kind {
 pub struct GL_Option {
     pub id: &'static str,
     pub label: &'static str,
-    pub description: &'static str,
     pub kind: GL_Option_Kind,
     pub default: &'static str,
 }
@@ -38,22 +37,19 @@ pub const GL_Value_Off: &str = "false";
 pub const GL_Options: &[GL_Option] = &[
     GL_Option {
         id: GL_Option_Memory,
-        label: "Game memory",
-        description: "How much memory Project Zomboid may use. Auto picks a size for a large mod pack from your PC's RAM.",
+        label: "Game Memory",
         kind: GL_Option_Kind::Choice,
         default: GL_Value_Auto,
     },
     GL_Option {
         id: GL_Option_Priority,
-        label: "Higher priority",
-        description: "Tells Windows to favour Project Zomboid over apps running in the background.",
+        label: "Higher Priority",
         kind: GL_Option_Kind::Toggle,
         default: GL_Value_Off,
     },
     GL_Option {
         id: GL_Option_Debug,
-        label: "Debug mode",
-        description: "Starts Project Zomboid with -debug (debug menu, logs). For testing.",
+        label: "Debug Mode",
         kind: GL_Option_Kind::Toggle,
         default: GL_Value_Off,
     },

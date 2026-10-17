@@ -24,8 +24,19 @@
   </header>
 
   <section class="GL_Panel GL_Notes">
-    <h2>Patch Notes</h2>
-    <pre id="GL_Notes_Text">Loading patch notes…</pre>
+    <div class="GL_Tabs" role="tablist">
+      <button type="button" role="tab" class="GL_Tab" data-page="GL_Notes_Text">Patch Notes</button>
+      <button type="button" role="tab" class="GL_Tab" data-page="GL_Environment">Environment</button>
+      <div id="GL_Presets" class="GL_Presets" hidden>
+        <button id="GL_Preset_Vanilla" type="button" class="GL_Preset">Vanilla</button>
+        <button id="GL_Preset_Gemini" type="button" class="GL_Preset">Gemini</button>
+      </div>
+    </div>
+    <pre id="GL_Notes_Text" class="GL_Page">Loading patch notes…</pre>
+    <div id="GL_Environment" class="GL_Page GL_Environment" hidden>
+      <p id="GL_Environment_Off" class="GL_Empty" hidden>Turn on Environment in Addons to use these.</p>
+      <div id="GL_Environment_List" class="GL_Environment_List"></div>
+    </div>
   </section>
 
   <section class="GL_Play">

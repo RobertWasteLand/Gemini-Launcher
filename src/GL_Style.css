@@ -15,6 +15,8 @@
 * {
   box-sizing: border-box;
   margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--GL_Muted) transparent;
 }
 
 html,
@@ -120,16 +122,6 @@ h2 {
   flex: none;
 }
 
-.GL_Option span {
-  display: flex;
-  flex-direction: column;
-}
-
-.GL_Option small {
-  color: var(--GL_Muted);
-  font-size: 12px;
-}
-
 .GL_Option_Choice {
   flex-direction: column;
   gap: 6px;
@@ -158,20 +150,6 @@ h2 {
 
 .GL_Options_List h2 {
   margin: 0;
-}
-
-.GL_Option_Locked {
-  cursor: default;
-}
-
-.GL_Tag {
-  margin-left: 8px;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--GL_Muted);
 }
 
 .GL_Brand {
@@ -209,6 +187,126 @@ h2 {
   font: inherit;
   user-select: text;
   cursor: text;
+}
+
+.GL_Page[hidden] {
+  display: none;
+}
+
+.GL_Tabs {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 26px;
+  margin-bottom: 10px;
+}
+
+.GL_Tab {
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 0 0 2px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--GL_Muted);
+}
+
+.GL_Tab:hover,
+.GL_Tab_Active {
+  color: var(--GL_Ink);
+}
+
+.GL_Tab_Active {
+  border-bottom-color: var(--GL_Line);
+}
+
+.GL_Environment {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.GL_Disabled .GL_Environment_List {
+  opacity: 0.45;
+}
+
+.GL_Presets {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.GL_Presets[hidden] {
+  display: none;
+}
+
+.GL_Preset {
+  height: 26px;
+  padding: 0 12px;
+  border: 2px solid var(--GL_Line);
+  background: var(--GL_Background);
+  font-weight: 700;
+}
+
+.GL_Preset:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.GL_Preset:hover:not(:disabled) {
+  background: var(--GL_Button);
+  color: var(--GL_Button_Ink);
+}
+
+.GL_Environment_List {
+  columns: 2;
+  column-gap: 28px;
+}
+
+.GL_Group {
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.GL_Group h3 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--GL_Muted);
+}
+
+.GL_Feature_Row {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.GL_Select_Small {
+  width: 84px;
+  height: 26px;
+}
+
+.GL_Option .GL_Slider {
+  flex: 1;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  margin-top: 0;
+  accent-color: var(--GL_Button);
+}
+
+.GL_Slider_Value {
+  width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .GL_Play {

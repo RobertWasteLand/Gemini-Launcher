@@ -15,4 +15,11 @@ public final class IsoGridSquare {
     public IsoGridSquare getAdjacentSquare(IsoDirections direction) {
         return null;
     }
+
+    public void clearWater() {
+    }
+
+    public IsoPuddlesGeometry getPuddles() {
+        return null;
+    }
 }

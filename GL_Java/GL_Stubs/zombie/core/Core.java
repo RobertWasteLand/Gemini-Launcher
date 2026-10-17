@@ -2,6 +2,7 @@ package zombie.core;
 
 public final class Core {
     public static int tileScale;
+    public static boolean debug;
 
     public static Core getInstance() {
         return null;

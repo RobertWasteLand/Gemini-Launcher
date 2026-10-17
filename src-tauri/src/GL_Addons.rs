@@ -8,7 +8,6 @@ pub const GL_Addon_Folder: &str = "GL_Java";
 pub struct GL_Addon {
     pub id: &'static str,
     pub label: &'static str,
-    pub description: &'static str,
     pub required: bool,
     pub default: bool,
 }
@@ -17,14 +16,12 @@ pub const GL_Addons: &[GL_Addon] = &[
     GL_Addon {
         id: "GL_Core",
         label: "Gemini Core",
-        description: "Gemini's own Java patches. Always on.",
         required: true,
         default: true,
     },
     GL_Addon {
         id: "GM_Environment",
         label: "Environment",
-        description: "Gemini's water: waves, breakers, beach swash. Off = the game's own water.",
         required: false,
         default: true,
     },

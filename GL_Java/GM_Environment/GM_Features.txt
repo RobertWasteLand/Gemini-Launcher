@@ -1,0 +1,13 @@
+GM_Water | switch | 1 | live | Water | Water
+GM_Water_Shore | switch | 1 | live | Water | Shore
+GM_Water_Style | slider 0 100 | 55 | live | Water | Style
+GM_Fog | switch | 1 | live | Fog | Fog
+GM_Fog_Wake | switch | 1 | live | Fog | Player Wake
+GM_Shadows | level | 2 | live | Light And Shadow | Sun Shadows
+GM_Shafts | switch | 1 | live | Light And Shadow | Sun Shafts
+GM_Halos | switch | 1 | live | Light And Shadow | Lamp Halos
+GM_Reflections | level | 2 | live | Reflections | Water Reflections
+GM_Glints | switch | 1 | live | Reflections | Glints
+GM_Glow | switch | 1 | live | Finish | Glow
+GM_Grade | switch | 0 | live | Finish | Grade
+GM_Vignette | switch | 1 | live | Finish | Vignette

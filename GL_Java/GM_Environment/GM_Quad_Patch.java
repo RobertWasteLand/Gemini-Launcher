@@ -9,6 +9,11 @@ public final class GM_Quad_Patch {
 
     @Patch.OnEnter
     public static void GM_Enter(@Patch.Argument(2) boolean shore) {
-        GM_Environment.GM_Shore_Quad(shore);
+        GM_Environment.GM_Water_Geometry(shore);
+    }
+
+    @Patch.OnExit
+    public static void GM_Exit() {
+        GM_Environment.GM_Water_Geometry_Done();
     }
 }

@@ -10,4 +10,11 @@ public final class GL15 {
 
     public static void glBufferData(int target, float[] data, int usage) {
     }
+
+    public static void glGenQueries(int[] ids) {
+    }
+
+    public static int glGetQueryObjecti(int id, int pname) {
+        return 0;
+    }
 }
