@@ -9,6 +9,10 @@ public final class ClimateManager {
         return null;
     }
 
+    public ClimateColorInfo getColorNewFog() {
+        return null;
+    }
+
     public float getFogIntensity() {
         return 0.0f;
     }

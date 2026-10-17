@@ -1,6 +1,6 @@
 package zombie.characters;
 
-public final class IsoPlayer {
+public class IsoPlayer extends zombie.iso.IsoMovingObject {
     public static final IsoPlayer[] players = null;
     public static int numPlayers;
 
@@ -8,15 +8,7 @@ public final class IsoPlayer {
         return null;
     }
 
-    public float getX() {
-        return 0.0f;
-    }
-
-    public float getY() {
-        return 0.0f;
-    }
-
-    public float getZ() {
-        return 0.0f;
+    public boolean isLocalPlayer() {
+        return false;
     }
 }

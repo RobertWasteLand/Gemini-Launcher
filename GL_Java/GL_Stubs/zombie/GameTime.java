@@ -9,6 +9,10 @@ public final class GameTime {
         return false;
     }
 
+    public double getWorldAgeHours() {
+        return 0.0;
+    }
+
     public float getTimeOfDay() {
         return 0.0f;
     }

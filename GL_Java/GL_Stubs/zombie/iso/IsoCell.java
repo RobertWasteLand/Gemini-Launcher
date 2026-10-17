@@ -10,4 +10,12 @@ public final class IsoCell {
     public java.util.Stack<IsoLightSource> getLamppostPositions() {
         return null;
     }
+
+    public java.util.ArrayList<zombie.characters.IsoZombie> getZombieList() {
+        return null;
+    }
+
+    public java.util.Set<zombie.vehicles.BaseVehicle> getVehicles() {
+        return null;
+    }
 }

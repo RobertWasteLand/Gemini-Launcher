@@ -70,6 +70,7 @@ final class GM_Field {
     private static final IsoGridSquare[] GM_Squares = new IsoGridSquare[GM_Rows_Per_Tick * GM_Size];
     private static final int GM_Water = -1;
     private static final int GM_Unknown = -2;
+    private static final int GM_Indoor = 0x1000000;
     private static final Semaphore GM_Go = new Semaphore(0);
     private static volatile boolean GM_Busy;
     private static volatile Throwable GM_Worker_Error;
@@ -180,7 +181,7 @@ final class GM_Field {
             if (square == null) {
                 GM_Missing++;
             }
-            int value = square == null ? GM_Unknown : square.has(IsoFlagType.water) ? GM_Water : GM_Bank.GM_Colour(GM_Floor_Sprite(square));
+            int value = square == null ? GM_Unknown : square.has(IsoFlagType.water) ? GM_Water : (GM_Bank.GM_Colour(GM_Floor_Sprite(square)) | (square.isOutside() ? 0 : GM_Indoor));
             if (value != colour[base + n]) {
                 colour[base + n] = value;
                 GM_Same = false;
@@ -431,6 +432,7 @@ final class GM_Field {
                 pixels.put((byte) Math.round(fetch * 255.0f));
                 float near = 0.0f;
                 int known = 0;
+                int outdoor = 0;
                 int cornerN = 0;
                 for (int dj = -1; dj <= 0; dj++) {
                     int tj = j + dj;
@@ -445,6 +447,9 @@ final class GM_Field {
                         near += Math.max(0.0f, 1.0f - Math.min(land[tj * s + ti], GM_Near_Range) / GM_Near_Range);
                         if (colour[tj * s + ti] != GM_Unknown) {
                             known++;
+                        }
+                        if (colour[tj * s + ti] < 0 || (colour[tj * s + ti] & GM_Indoor) == 0) {
+                            outdoor++;
                         }
                         cornerN++;
                     }
@@ -467,7 +472,7 @@ final class GM_Field {
                         }
                         int tile = tj * s + ti;
                         int from = src[tile] >= 0 ? src[tile] : tile;
-                        int rgb = colour[from] < 0 ? GM_Bank.GM_Default : colour[from];
+                        int rgb = colour[from] < 0 ? GM_Bank.GM_Default : colour[from] & 0xFFFFFF;
                         float weight = 1.0f / (d[tile] + 0.5f);
                         red += ((rgb >> 16) & 0xFF) * weight;
                         green += ((rgb >> 8) & 0xFF) * weight;
@@ -484,7 +489,7 @@ final class GM_Field {
                 bank.put((byte) Math.round(red / weightSum));
                 bank.put((byte) Math.round(green / weightSum));
                 bank.put((byte) Math.round(blue / weightSum));
-                bank.put((byte) 255);
+                bank.put((byte) Math.round((cornerN > 0 ? outdoor / (float) cornerN : 1.0f) * 255.0f));
             }
         }
         pixels.flip();

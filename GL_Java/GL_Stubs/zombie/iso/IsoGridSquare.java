@@ -8,6 +8,10 @@ public final class IsoGridSquare {
         return false;
     }
 
+    public boolean isOutside() {
+        return false;
+    }
+
     public IsoObject getFloor() {
         return null;
     }
