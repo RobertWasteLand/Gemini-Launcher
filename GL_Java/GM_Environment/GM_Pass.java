@@ -70,6 +70,12 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static final int GL_NO_ERROR = 0;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     private static final int GM_Error_Max = 32;
+    private static final int GL_COLOR_BUFFER_BIT = 0x4000;
+    private static final int GM_Margin = 64;
+    private static int GM_X0;
+    private static int GM_Y0;
+    private static int GM_X1;
+    private static int GM_Y1;
     private static final int GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
     private static final int GL_LESS = 0x0201;
 
@@ -118,10 +124,11 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static int GM_Blur_Loc_Source = -1;
     private static int GM_Blur_Loc_Delta = -1;
 
-    private final GM_Shaders.GM_Frame frame;
+    private GM_Shaders.GM_Frame frame;
 
-    GM_Pass(GM_Shaders.GM_Frame frame) {
+    GM_Pass GM_Use(GM_Shaders.GM_Frame frame) {
         this.frame = frame;
+        return this;
     }
 
     static int GM_Depth_Texture() {
@@ -332,6 +339,11 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_BlurA_Fbo = GM_Fbo_Make(GM_BlurA_Tex, false);
         GM_BlurB_Tex = GM_Texture_Make(GM_Quarter_W, GM_Quarter_H, false, false);
         GM_BlurB_Fbo = GM_Fbo_Make(GM_BlurB_Tex, false);
+        GM_Clear(GM_Depth_Fbo, true);
+        GM_Clear(GM_Rays_Fbo, false);
+        GM_Clear(GM_Bright_Fbo, false);
+        GM_Clear(GM_BlurA_Fbo, false);
+        GM_Clear(GM_BlurB_Fbo, false);
         GM_Memory_Check("screen effect");
         System.out.println("[GL_Java] GM_Environment effects use " + (GM_Bytes(width, height) + 524288L) / 1048576L + " MB of video memory at " + width + "x" + height);
     }
@@ -358,13 +370,17 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         if (width <= 0 || height <= 0) {
             return;
         }
+        long start = GM_Timing.GM_Cpu_Start();
         GL11.glPushAttrib(GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL_CLIENT_ALL_ATTRIB_BITS);
+        GM_Timing.GM_Cpu_Push(start);
+        long query = GM_Timing.GM_Cpu_Start();
         int prevFbo = TextureFBO.getCurrentID();
         int prevProgram = GL11.glGetInteger(GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL_VERTEX_ARRAY_BINDING);
         int prevUnit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
         GL11.glGetIntegerv(GL_VIEWPORT, GM_Viewport);
+        GM_Timing.GM_Cpu_Query(query);
         try {
             if (width != GM_W || height != GM_H || GM_Settings.GM_Test("resize")) {
                 try {
@@ -377,16 +393,17 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
                 }
             }
             GM_Locations();
+            GM_Used(width, height);
             GM_Timing.GM_Stamp(GM_Timing.GM_Begin);
+            GL11.glDisable(GL_SCISSOR_TEST);
             if (this.frame.depth) {
                 GL30.glBindFramebuffer(GL_READ_FRAMEBUFFER, world.getBufferId());
                 GL30.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GM_Depth_Fbo);
-                GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                GL30.glBlitFramebuffer(GM_X0, GM_Y0, GM_X1, GM_Y1, GM_X0, GM_Y0, GM_X1, GM_Y1, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
             }
             GM_Timing.GM_Stamp(GM_Timing.GM_Blit);
             GL11.glDisable(GL_DEPTH_TEST);
             GL11.glDisable(GL_BLEND);
-            GL11.glDisable(GL_SCISSOR_TEST);
             GL11.glDisable(GL_STENCIL_TEST);
             GL11.glDisable(GL_ALPHA_TEST);
             GL11.glDisable(GL_CULL_FACE);
@@ -401,6 +418,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
                 GM_Fog_Draw();
             }
             GM_Timing.GM_Stamp(GM_Timing.GM_Fog);
+            GL11.glEnable(GL_SCISSOR_TEST);
             if (fx[GM_Shaders.GM_Fx_Shadows] > 0.5f || fx[GM_Shaders.GM_Fx_Shafts] > 0.5f) {
                 GM_Rays_Draw();
             }
@@ -415,11 +433,53 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             GL11.glViewport(GM_Viewport[0], GM_Viewport[1], GM_Viewport[2], GM_Viewport[3]);
             GL20.glUseProgram(prevProgram);
             GL13.glActiveTexture(prevUnit);
+            long pop = GM_Timing.GM_Cpu_Start();
             GL11.glPopClientAttrib();
             GL11.glPopAttrib();
+            GM_Timing.GM_Cpu_Pop(pop);
             Texture.lastTextureID = -1;
             SpriteRenderer.ringBuffer.restoreBoundTextures = true;
             SpriteRenderer.ringBuffer.restoreVbos = true;
+            GM_Timing.GM_Cpu_Pass(start);
+        }
+    }
+
+    private void GM_Used(int width, int height) {
+        int x0 = Math.max(0, this.frame.usedX - GM_Margin);
+        int y0 = Math.max(0, this.frame.usedY - GM_Margin);
+        int x1 = Math.min(width, this.frame.usedX + this.frame.usedW + GM_Margin);
+        int y1 = Math.min(height, this.frame.usedY + this.frame.usedH + GM_Margin);
+        if (this.frame.usedW <= 0 || this.frame.usedH <= 0 || x1 <= x0 || y1 <= y0) {
+            x0 = 0;
+            y0 = 0;
+            x1 = width;
+            y1 = height;
+        }
+        GM_X0 = x0;
+        GM_Y0 = y0;
+        GM_X1 = x1;
+        GM_Y1 = y1;
+    }
+
+    private static void GM_Scissor(int scale, int limitW, int limitH) {
+        int x0 = GM_X0 / scale;
+        int y0 = GM_Y0 / scale;
+        int x1 = Math.min(limitW, (GM_X1 + scale - 1) / scale);
+        int y1 = Math.min(limitH, (GM_Y1 + scale - 1) / scale);
+        GL11.glScissor(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
+    }
+
+    private static void GM_Clear(int fbo, boolean depth) {
+        GL30.glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        GL11.glDisable(GL_SCISSOR_TEST);
+        if (depth) {
+            GL11.glDepthMask(true);
+            GL11.glClearDepth(1.0);
+            GL11.glClear(GL_DEPTH_BUFFER_BIT);
+        } else {
+            GL11.glColorMask(true, true, true, true);
+            GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            GL11.glClear(GL_COLOR_BUFFER_BIT);
         }
     }
 
@@ -447,6 +507,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private void GM_Rays_Draw() {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_Rays_Fbo);
         GL11.glViewport(0, 0, GM_Half_W, GM_Half_H);
+        GM_Scissor(2, GM_Half_W, GM_Half_H);
         GL20.glUseProgram(GM_Prog_Rays.getShaderID());
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, GM_Depth_Tex);
@@ -466,6 +527,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private void GM_Bloom_Draw(int sceneTexture) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_Bright_Fbo);
         GL11.glViewport(0, 0, GM_Half_W, GM_Half_H);
+        GM_Scissor(2, GM_Half_W, GM_Half_H);
         GL20.glUseProgram(GM_Prog_Bright.getShaderID());
         GL13.glActiveTexture(GL_TEXTURE0);
         GL11.glBindTexture(GL_TEXTURE_2D, sceneTexture);
@@ -476,6 +538,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GL20.glUniform1i(GM_Blur_Loc_Source, 0);
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_BlurA_Fbo);
         GL11.glViewport(0, 0, GM_Quarter_W, GM_Quarter_H);
+        GM_Scissor(4, GM_Quarter_W, GM_Quarter_H);
         GL11.glBindTexture(GL_TEXTURE_2D, GM_Bright_Tex);
         GL20.glUniform2f(GM_Blur_Loc_Delta, 1.0f / GM_Quarter_W, 0.0f);
         GL11.glDrawArrays(GL_TRIANGLES, 0, 3);

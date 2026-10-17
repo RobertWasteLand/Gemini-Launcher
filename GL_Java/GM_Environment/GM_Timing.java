@@ -82,6 +82,11 @@ final class GM_Timing {
     private static final GM_End_Draw GM_End_Drawer = new GM_End_Draw();
     private static final GM_Cpu GM_Cpu_Queue = new GM_Cpu();
     private static final GM_Cpu GM_Cpu_Field = new GM_Cpu();
+    private static final GM_Cpu GM_Cpu_Pass = new GM_Cpu();
+    private static final GM_Cpu GM_Cpu_Push = new GM_Cpu();
+    private static final GM_Cpu GM_Cpu_Query = new GM_Cpu();
+    private static final GM_Cpu GM_Cpu_Pop = new GM_Cpu();
+    private static final GM_Cpu GM_Cpu_Bind = new GM_Cpu();
     private static final int[][] GM_Ids = new int[GM_Depth][GM_Queries];
     private static final int[] GM_Mask = new int[GM_Depth];
     private static final int[] GM_Pairs = new int[GM_Depth];
@@ -128,6 +133,36 @@ final class GM_Timing {
     static void GM_Cpu_Field(long start) {
         if (GM_On) {
             GM_Cpu_Field.GM_Add(System.nanoTime() - start);
+        }
+    }
+
+    static void GM_Cpu_Pass(long start) {
+        if (GM_On) {
+            GM_Cpu_Pass.GM_Add(System.nanoTime() - start);
+        }
+    }
+
+    static void GM_Cpu_Push(long start) {
+        if (GM_On) {
+            GM_Cpu_Push.GM_Add(System.nanoTime() - start);
+        }
+    }
+
+    static void GM_Cpu_Query(long start) {
+        if (GM_On) {
+            GM_Cpu_Query.GM_Add(System.nanoTime() - start);
+        }
+    }
+
+    static void GM_Cpu_Pop(long start) {
+        if (GM_On) {
+            GM_Cpu_Pop.GM_Add(System.nanoTime() - start);
+        }
+    }
+
+    static void GM_Cpu_Bind(long start) {
+        if (GM_On) {
+            GM_Cpu_Bind.GM_Add(System.nanoTime() - start);
         }
     }
 
@@ -293,6 +328,11 @@ final class GM_Timing {
             line.append(" total ").append(GM_Ms(total));
             line.append(" | cpu queue ").append(GM_Cpu_Queue.GM_Text());
             line.append(" field ").append(GM_Cpu_Field.GM_Text());
+            line.append(" | draw thread pass ").append(GM_Cpu_Pass.GM_Text());
+            line.append(" push ").append(GM_Cpu_Push.GM_Text());
+            line.append(" query ").append(GM_Cpu_Query.GM_Text());
+            line.append(" pop ").append(GM_Cpu_Pop.GM_Text());
+            line.append(" bind ").append(GM_Cpu_Bind.GM_Text());
             line.append(" | ").append(GM_Samples).append(" frames");
             if (GM_Skipped > 0) {
                 line.append(", ").append(GM_Skipped).append(" not ready");

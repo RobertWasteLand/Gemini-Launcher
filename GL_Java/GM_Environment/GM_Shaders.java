@@ -71,6 +71,10 @@ final class GM_Shaders {
         float tileScale;
         float texLeft;
         float texBottom;
+        int usedX;
+        int usedY;
+        int usedW;
+        int usedH;
         float depthRef;
         float sumRef;
         float sunDirX;
@@ -153,6 +157,16 @@ final class GM_Shaders {
     private static Object GM_Vanilla;
     private static int GM_Seq;
     private static final GM_Frame[][] GM_Ring = new GM_Frame[GM_Ring_Size][GM_Players];
+    private static final GM_Pass[] GM_Passes = new GM_Pass[GM_Ring_Size];
+    private static final float[] GM_Lamp_Best = new float[GM_Lamp_Count];
+    private static boolean GM_Shared;
+    private static final float[] GM_Sun_Day = {1.0f, 0.97f, 0.88f};
+    private static final float[] GM_Sun_Low = {1.0f, 0.74f, 0.52f};
+    private static final float[] GM_Sun_Moon = {0.55f, 0.65f, 0.85f};
+    private static final float[] GM_WB_Day = {1.0f, 1.0f, 1.0f};
+    private static final float[] GM_WB_Low = {1.02f, 0.99f, 0.96f};
+    private static final float[] GM_WB_Night = {0.96f, 0.98f, 1.05f};
+    private static final float[] GM_Fog_Tint = {0.93f, 0.98f, 1.0f};
     private static final GM_Motion[] GM_Motions = new GM_Motion[GM_Players];
     private static long GM_Last_Nanos;
     private static float GM_Clock;
@@ -216,7 +230,12 @@ final class GM_Shaders {
                 GM_Fail("the screen shader stopped compiling", new IllegalStateException(GM_Name));
                 return;
             }
-            if (GM_Settings.GM_Get().screen) {
+            boolean shared = GM_Shared_Screen();
+            if (shared != GM_Shared) {
+                GM_Shared = shared;
+                System.out.println("[GL_Java] GM_Environment screen effects " + (shared ? "paused: more than one player shares the screen" : "back on: one player on the screen"));
+            }
+            if (GM_Settings.GM_Get().screen && !shared) {
                 if (current != GM_Screen) {
                     GM_Vanilla = current;
                     SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Screen;
@@ -234,6 +253,23 @@ final class GM_Shaders {
         GM_Vanilla = current;
         GM_Installing = true;
         RenderThread.invokeOnRenderContext(GM_Shaders::GM_Install);
+    }
+
+    private static boolean GM_Shared_Screen() {
+        if (GM_Settings.GM_Test("split")) {
+            return true;
+        }
+        IsoPlayer[] players = IsoPlayer.players;
+        if (players == null) {
+            return false;
+        }
+        int local = 0;
+        for (int i = 0; i < players.length; i++) {
+            if (players[i] != null) {
+                local++;
+            }
+        }
+        return local > 1;
     }
 
     private static void GM_Install() {
@@ -271,7 +307,7 @@ final class GM_Shaders {
                 return;
             }
             GM_Screen = shader;
-            if (GM_Settings.GM_Get().screen) {
+            if (GM_Settings.GM_Get().screen && !GM_Shared_Screen()) {
                 SceneShaderStore.weatherShader = shader;
             }
             System.out.println("[GL_Java] GM_Environment shaders on");
@@ -313,7 +349,6 @@ final class GM_Shaders {
         int slot = GM_Seq % GM_Ring_Size;
         int players = Math.max(1, Math.min(GM_Players, IsoPlayer.numPlayers));
         GM_Settings settings = GM_Settings.GM_Get();
-        GM_Frame[] frames = new GM_Frame[players];
         for (int p = 0; p < players; p++) {
             GM_Frame frame = GM_Ring[slot][p];
             if (frame == null) {
@@ -332,9 +367,13 @@ final class GM_Shaders {
                 frame.fx[k] = settings.GM_Value(GM_Fx_Features[k], 1);
             }
             GM_Frame_Fill(frame, p, dt, climate);
-            frames[p] = frame;
         }
-        SpriteRenderer.instance.drawGeneric(new GM_Pass(frames[0]));
+        GM_Pass pass = GM_Passes[slot];
+        if (pass == null) {
+            pass = new GM_Pass();
+            GM_Passes[slot] = pass;
+        }
+        SpriteRenderer.instance.drawGeneric(pass.GM_Use(GM_Ring[slot][0]));
     }
 
     private static void GM_Frame_Fill(GM_Frame frame, int p, float dt, ClimateManager climate) {
@@ -346,6 +385,10 @@ final class GM_Shaders {
         frame.tileScale = Core.tileScale;
         frame.texLeft = IsoCamera.getOffscreenLeft(p);
         frame.texBottom = IsoCamera.getOffscreenTop(p) + IsoCamera.getScreenHeight(p);
+        frame.usedX = IsoCamera.getOffscreenLeft(p);
+        frame.usedY = IsoCamera.getOffscreenTop(p);
+        frame.usedW = IsoCamera.getScreenWidth(p);
+        frame.usedH = IsoCamera.getScreenHeight(p);
         frame.time = GM_Clock;
         IsoPlayer player = IsoPlayer.players[p];
         float camX = IsoCamera.frameState.camCharacterX;
@@ -386,27 +429,20 @@ final class GM_Shaders {
         frame.night = night;
         frame.sunAmount = GM_Mix(GM_Mix(0.6f, 1.0f, lowSun), 0.2f, night);
         frame.sunStep = GM_Mix(GM_Mix(0.6f, 1.1f, lowSun), 0.9f, night);
-        float[] day = {1.0f, 0.97f, 0.88f};
-        float[] low = {1.0f, 0.74f, 0.52f};
-        float[] moon = {0.55f, 0.65f, 0.85f};
         for (int i = 0; i < 3; i++) {
-            frame.sunColour[i] = GM_Mix(GM_Mix(day[i], low[i], lowSun), moon[i], night);
+            frame.sunColour[i] = GM_Mix(GM_Mix(GM_Sun_Day[i], GM_Sun_Low[i], lowSun), GM_Sun_Moon[i], night);
         }
-        float[] dayWB = {1.0f, 1.0f, 1.0f};
-        float[] lowWB = {1.02f, 0.99f, 0.96f};
-        float[] nightWB = {0.96f, 0.98f, 1.05f};
         for (int i = 0; i < 3; i++) {
-            frame.balance[i] = GM_Mix(GM_Mix(dayWB[i], lowWB[i], lowSun), nightWB[i], night);
+            frame.balance[i] = GM_Mix(GM_Mix(GM_WB_Day[i], GM_WB_Low[i], lowSun), GM_WB_Night[i], night);
         }
         Color exterior = climate.getGlobalLight().getExterior();
         float r = GM_Clamp(exterior.r, 0.0f, 1.0f);
         float g = GM_Clamp(exterior.g, 0.0f, 1.0f);
         float b = GM_Clamp(exterior.b, 0.0f, 1.0f);
         float luma = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-        float[] tint = {0.93f, 0.98f, 1.0f};
-        float[] base = {r, g, b};
         for (int i = 0; i < 3; i++) {
-            frame.fogColour[i] = (GM_Mix(base[i], luma, 0.55f) * 0.78f + 0.03f) * tint[i];
+            float base = i == 0 ? r : i == 1 ? g : b;
+            frame.fogColour[i] = (GM_Mix(base, luma, 0.55f) * 0.78f + 0.03f) * GM_Fog_Tint[i];
         }
         float fog = GM_Clamp(climate.getFogIntensity(), 0.0f, 1.0f);
         frame.fogAmount = Math.max(fog, dawnK * 0.15f + night * 0.05f);
@@ -438,7 +474,7 @@ final class GM_Shaders {
         float screenH = IsoCamera.getScreenHeight(frame.player);
         float pxPerTile = 49.0f / frame.zoom * (frame.tileScale / 2.0f);
         int filled = 0;
-        float[] best = new float[GM_Lamp_Count];
+        float[] best = GM_Lamp_Best;
         for (int i = 0; i < lights.size(); i++) {
             IsoLightSource light = lights.get(i);
             if (light == null || !light.active || light.z != level || light.radius <= 0) {
@@ -535,7 +571,12 @@ final class GM_Shaders {
         if (GM_Failed || self != GM_Screen || !(draw instanceof TextureDraw)) {
             return;
         }
-        TextureDraw texd = (TextureDraw) draw;
+        long start = GM_Timing.GM_Cpu_Start();
+        GM_Bind_Run((TextureDraw) draw);
+        GM_Timing.GM_Cpu_Bind(start);
+    }
+
+    private static void GM_Bind_Run(TextureDraw texd) {
         int player = SpriteRenderer.instance.getRenderingPlayerIndex();
         int seq = texd.vars != null && texd.vars.length > GM_Var_Seq ? (int) texd.vars[GM_Var_Seq] : 0;
         GM_Frame frame = GM_Frame_Of(seq, player);

@@ -66,4 +66,16 @@ public final class GL11 {
     public static int glGetError() {
         return 0;
     }
+
+    public static void glClear(int mask) {
+    }
+
+    public static void glClearColor(float red, float green, float blue, float alpha) {
+    }
+
+    public static void glClearDepth(double depth) {
+    }
+
+    public static void glScissor(int x, int y, int width, int height) {
+    }
 }
