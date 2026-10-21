@@ -33,7 +33,7 @@ public final class GM_Environment {
     private static Object GM_Vanilla_Effect;
     private static Object GM_ShoreFade_Option;
     private static boolean GM_Field_Idle;
-    private static volatile boolean GM_Shore_Live = true;
+    private static volatile int GM_Shore_Live = 3;
     private static volatile boolean GM_Shore_Pending;
     private static int GM_Effect_Quality = -1;
 
@@ -85,8 +85,8 @@ public final class GM_Environment {
         }
         GM_Failed = true;
         GM_ShoreFade = null;
-        if (GM_Shore_Live) {
-            GM_Shore_Live = false;
+        if (GM_Shore_Live != 0) {
+            GM_Shore_Live = 0;
             GM_Shore_Pending = true;
         }
         System.out.println("[GL_Java] GM_Environment off: " + what + " (" + t + ")");
@@ -108,6 +108,13 @@ public final class GM_Environment {
         return settings.GM_On(GM_Features.GM_Water) && settings.GM_On(GM_Features.GM_Water_Shore);
     }
 
+    private static int GM_Shore_State(GM_Settings settings) {
+        if (!GM_Shore_On(settings)) {
+            return 0;
+        }
+        return (GM_Settings.GM_Test("shore_fade") ? 0 : 1) | (GM_Settings.GM_Test("shore_tiles") ? 0 : 2);
+    }
+
     private static void GM_Settings_Tick(boolean force) {
         if (GM_Failed) {
             return;
@@ -117,7 +124,7 @@ public final class GM_Environment {
                 return;
             }
             GM_ShoreFade_Update();
-            boolean shore = GM_Shore_On(GM_Settings.GM_Get());
+            int shore = GM_Shore_State(GM_Settings.GM_Get());
             if (shore != GM_Shore_Live) {
                 GM_Shore_Live = shore;
                 GM_Shore_Pending = true;
@@ -156,7 +163,7 @@ public final class GM_Environment {
     }
 
     private static void GM_ShoreFade_Update() {
-        GM_ShoreFade = !GM_Failed && GM_Shore_On(GM_Settings.GM_Get()) ? GM_ShoreFade_Option : null;
+        GM_ShoreFade = !GM_Failed && (GM_Shore_State(GM_Settings.GM_Get()) & 1) != 0 ? GM_ShoreFade_Option : null;
     }
 
     public static void GM_Water_Check(Object self) {
@@ -302,7 +309,7 @@ public final class GM_Environment {
             return result;
         }
         try {
-            if (!GM_Shore_On(GM_Settings.GM_Get())) {
+            if ((GM_Shore_State(GM_Settings.GM_Get()) & 2) == 0) {
                 return result;
             }
             return GM_Shore.GM_Init_Exit(self, square, result);

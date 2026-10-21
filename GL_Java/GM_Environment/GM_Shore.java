@@ -27,6 +27,7 @@ final class GM_Shore {
     private static Field GM_Recalc_Field;
     private static boolean GM_Shore_Failed;
     private static boolean GM_Recalc_Failed;
+    private static int GM_Marked;
 
     private GM_Shore() {
     }
@@ -89,6 +90,7 @@ final class GM_Shore {
                 GM_Shore_Field = field;
             }
             GM_Shore_Field.setBoolean(geometry, true);
+            GM_Marked++;
             return result;
         } catch (Throwable t) {
             GM_Shore_Failed = true;
@@ -134,7 +136,8 @@ final class GM_Shore {
             }
         }
         System.out.println("[GL_Java] GM_Environment shore refreshed, " + squares + " squares in " + chunks + " chunks (" + checked + " chunks checked on " + maps + " of " + IsoPlayer.numPlayers + " player maps, grid " + width + "), "
-            + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1.0e6) + " ms");
+            + String.format(Locale.ROOT, "%.1f", (System.nanoTime() - start) / 1.0e6) + " ms, " + GM_Marked + " extra shore squares marked before it");
+        GM_Marked = 0;
     }
 
     private static int GM_Refresh_Chunk(IsoChunk chunk) {
