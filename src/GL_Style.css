@@ -289,11 +289,6 @@ h2 {
   justify-content: space-between;
 }
 
-.GL_Select_Small {
-  width: 84px;
-  height: 26px;
-}
-
 .GL_Option .GL_Slider {
   flex: 1;
   width: auto;

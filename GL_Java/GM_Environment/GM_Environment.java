@@ -33,15 +33,13 @@ public final class GM_Environment {
 
     public static volatile boolean GM_Solid_Bank;
     public static volatile boolean GM_Water_Plants;
-    private static volatile Thread GM_Attach_Thread;
-    private static boolean GM_Cell_Water;
     private static volatile boolean GM_Failed;
     private static volatile boolean GM_Missing;
     private static boolean GM_Shown;
     private static Object GM_Effect;
     private static Object GM_Vanilla_Effect;
     private static boolean GM_Field_Idle;
-    private static volatile int GM_Shore_Live = 7;
+    private static volatile int GM_Shore_Live = 3;
     private static volatile boolean GM_Shore_Pending;
     private static int GM_Effect_Quality = -1;
 
@@ -112,16 +110,14 @@ public final class GM_Environment {
         if (GM_Failed || GM_Missing || !settings.GM_On(GM_Features.GM_Water)) {
             return 0;
         }
-        if (!settings.GM_On(GM_Features.GM_Water_Shore)) {
-            return 4;
-        }
-        return 4 | (GM_Settings.GM_Test("shore_fade") ? 0 : 1) | (GM_Settings.GM_Test("shore_tiles") ? 0 : 2);
+        boolean solid = settings.GM_On(GM_Features.GM_Water_Shore) && !GM_Settings.GM_Test("shore_fade");
+        return 2 | (solid ? 1 : 0);
     }
 
     private static void GM_Layers_Apply() {
         int state = GM_Shore_State(GM_Settings.GM_Get());
         GM_Solid_Bank = (state & 1) != 0;
-        GM_Water_Plants = (state & 4) != 0;
+        GM_Water_Plants = (state & 2) != 0;
         if (state != GM_Shore_Live) {
             GM_Shore_Live = state;
             GM_Shore_Pending = true;
@@ -199,26 +195,6 @@ public final class GM_Environment {
             }
         }
         return false;
-    }
-
-    public static void GM_Cell_Water_Enter() {
-        GM_Cell_Water = true;
-        GM_Attach_Thread = null;
-    }
-
-    public static void GM_Cell_Water_Exit() {
-        GM_Cell_Water = false;
-        GM_Attach_Thread = null;
-    }
-
-    public static void GM_Water_Drawn() {
-        if (GM_Cell_Water && !GM_Shaders.GM_Off() && GM_Settings.GM_Get().screen) {
-            GM_Attach_Thread = Thread.currentThread();
-        }
-    }
-
-    public static boolean GM_Depth_Write(boolean write) {
-        return write || GM_Attach_Thread == Thread.currentThread();
     }
 
     public static void GM_Water_Check(Object self) {
@@ -359,21 +335,6 @@ public final class GM_Environment {
         GM_Timing.GM_Water(false);
     }
 
-    public static IsoWaterGeometry GM_Shore_Init(Object self, IsoGridSquare square, IsoWaterGeometry result) {
-        if (GM_Failed) {
-            return result;
-        }
-        try {
-            if ((GM_Shore_State(GM_Settings.GM_Get()) & 2) == 0) {
-                return result;
-            }
-            return GM_Shore.GM_Init_Exit(self, square, result);
-        } catch (Throwable t) {
-            GM_Fail("extra shore tiles failed", t);
-            return result;
-        }
-    }
-
     public static void GM_Screen_Check() {
         GM_Settings_Tick(false);
         GM_Shore_Refresh();
@@ -423,17 +384,6 @@ public final class GM_Environment {
             GM_Shaders.GM_Bind(self, draw);
         } catch (Throwable t) {
             GM_Shaders.GM_Fail("screen uniforms failed", t);
-        }
-    }
-
-    public static void GM_Water_Depth(boolean shore, int count) {
-        if (GM_Shaders.GM_Off()) {
-            return;
-        }
-        try {
-            GM_Shaders.GM_Water_Depth(shore, count);
-        } catch (Throwable t) {
-            GM_Shaders.GM_Fail("water depth failed", t);
         }
     }
 

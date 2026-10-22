@@ -353,16 +353,32 @@ fn GL_Test_Buddy_Leftovers() {
 fn GL_Test_Features_Shipped() {
     let list = GL_Features_Parse(GL_Features_Text).expect("shipped feature list parses");
     assert_eq!(list.len(), GL_Features().len());
-    assert!(list.len() >= 13);
+    let ids: Vec<&str> = list.iter().map(|f| f.id.as_str()).collect();
+    assert_eq!(ids, vec!["GM_Water", "GM_Water_Shore", "GM_Water_Style", "GM_Fog", "GM_Fog_Wake"]);
     let water = GL_Feature_Find("GM_Water").expect("GM_Water listed");
     assert_eq!(water.kind, GL_Feature_Kind::Switch);
     assert_eq!(water.group, "Water");
     let style = GL_Feature_Find("GM_Water_Style").expect("GM_Water_Style listed");
     assert_eq!((style.kind, style.min, style.max), (GL_Feature_Kind::Slider, 0, 100));
-    assert!(GL_Feature_Find("GM_Water_Shore").is_some());
-    let shadows = GL_Feature_Find("GM_Shadows").expect("GM_Shadows listed");
-    assert_eq!((shadows.kind, shadows.max, shadows.default), (GL_Feature_Kind::Level, 2, 2));
-    assert_eq!(GL_Feature_Find("GM_Grade").map(|f| f.default), Some(0));
+    assert_eq!(GL_Feature_Find("GM_Fog_Wake").map(|f| f.group.as_str()), Some("Fog"));
+}
+
+#[test]
+fn GL_Test_Features_Old_Settings() {
+    let mut s = GL_Settings::default();
+    for (id, value) in [("GM_Shadows", "2"), ("GM_Reflections", "1"), ("GM_Glints", "1"), ("GM_Grade", "0"), ("GM_Vignette", "1"), ("GM_Water_Style", "70")] {
+        s.options.insert(id.to_owned(), value.to_owned());
+    }
+    assert!(GL_Feature_Find("GM_Shadows").is_none() && GL_Feature_Find("GM_Reflections").is_none());
+    let text = GL_Cfg_Text(&s, 9);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), GL_Features().len() + 1);
+    assert!(lines.contains(&"GM_Water_Style=70"));
+    assert!(lines.iter().all(|l| !l.starts_with("GM_Shadows") && !l.starts_with("GM_Reflections") && !l.starts_with("GM_Glints") && !l.starts_with("GM_Grade") && !l.starts_with("GM_Vignette")));
+    GL_Preset_Apply(&mut s, GL_Preset_Vanilla_Get(GL_Preset_Vanilla).unwrap());
+    assert!(GL_Features().iter().all(|f| GL_Feature_Value(&s, f) == f.min));
+    GL_Preset_Apply(&mut s, GL_Preset_Vanilla_Get(GL_Preset_Gemini).unwrap());
+    assert!(GL_Features().iter().all(|f| GL_Feature_Value(&s, f) == f.default));
 }
 
 #[test]
@@ -370,7 +386,8 @@ fn GL_Test_Features_Parse() {
     assert!(GL_Features_Parse("GM_A | switch | 1 | live | Group | Name A\n\nGM_B | slider 0 10 | 5 | launch | Group | Name B").is_ok());
     for bad in [
         "GM_A | switch | 2 | live | Group | Name",
-        "GM_A | level | 1 | sometimes | Group | Name",
+        "GM_A | switch | 1 | sometimes | Group | Name",
+        "GM_A | level | 1 | live | Group | Name",
         "GM_A | slider 10 0 | 5 | live | Group | Name",
         "GM_A | slider 0 | 0 | live | Group | Name",
         "GM_A | dial | 1 | live | Group | Name",
@@ -418,8 +435,8 @@ fn GL_Test_Cfg_Text() {
     assert_eq!(lines.len(), GL_Features().len() + 1);
     assert!(lines.contains(&"GM_Fog=0"));
     assert!(lines.contains(&"GM_Water_Style=80"));
-    assert!(lines.contains(&"GM_Grade=0"));
-    assert!(lines.contains(&"GM_Shadows=2"));
+    assert!(lines.contains(&"GM_Water=1"));
+    assert!(lines.contains(&"GM_Fog_Wake=1"));
     assert!(text.ends_with('\n'));
 }
 

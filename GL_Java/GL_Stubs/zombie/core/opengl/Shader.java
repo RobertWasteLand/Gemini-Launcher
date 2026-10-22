@@ -13,8 +13,4 @@ public class Shader {
     public boolean isCompiled() {
         return false;
     }
-
-    public int getID() {
-        return 0;
-    }
 }

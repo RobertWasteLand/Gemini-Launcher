@@ -8,7 +8,6 @@ const GL_Notes_Url = "https://raw.githubusercontent.com/RobertWasteLand/Gemini-L
 const GL_Notes_Key = "GL_Notes_Cache";
 const GL_Notes_Timeout = 10000;
 const GL_Tab_Key = "GL_Tab";
-const GL_Level_Names = ["Off", "Low", "High"];
 
 let GL_Options_Key = "";
 let GL_Environment_Key = "";
@@ -126,24 +125,6 @@ function GL_Feature_Switch(feature) {
   return row;
 }
 
-function GL_Feature_Level(feature) {
-  const row = document.createElement("div");
-  row.className = "GL_Option GL_Feature_Row";
-  const select = document.createElement("select");
-  select.className = "GL_Select GL_Select_Small";
-  select.setAttribute("aria-label", feature.name);
-  for (let value = feature.min; value <= feature.max; value++) {
-    const item = document.createElement("option");
-    item.value = String(value);
-    item.textContent = GL_Level_Names[value] || String(value);
-    select.append(item);
-  }
-  select.value = String(feature.value);
-  select.addEventListener("change", () => GL_Option_Save(feature.id, select.value, select));
-  row.append(GL_Option_Text({ label: feature.name }), select);
-  return row;
-}
-
 function GL_Feature_Slider(feature) {
   const row = document.createElement("div");
   row.className = "GL_Option GL_Feature_Row";
@@ -179,14 +160,12 @@ function GL_Environment_Render(status) {
       groups.set(feature.group, group);
       list.append(group);
     }
-    const row =
-      feature.kind === "slider" ? GL_Feature_Slider(feature) : feature.kind === "level" ? GL_Feature_Level(feature) : GL_Feature_Switch(feature);
-    groups.get(feature.group).append(row);
+    groups.get(feature.group).append(feature.kind === "slider" ? GL_Feature_Slider(feature) : GL_Feature_Switch(feature));
   }
   const environment = GL_Element_Get("GL_Environment");
   environment.classList.toggle("GL_Disabled", !status.featuresOn);
   GL_Element_Get("GL_Environment_Off").hidden = status.featuresOn;
-  for (const control of document.querySelectorAll("#GL_Environment input, #GL_Environment select, #GL_Presets button")) {
+  for (const control of document.querySelectorAll("#GL_Environment input, #GL_Presets button")) {
     control.disabled = !status.featuresOn;
   }
 }

@@ -39,9 +39,6 @@ public final class GL11 {
     public static void glDepthMask(boolean flag) {
     }
 
-    public static void glDepthFunc(int func) {
-    }
-
     public static void glPushAttrib(int mask) {
     }
 
@@ -52,9 +49,6 @@ public final class GL11 {
     }
 
     public static void glPopClientAttrib() {
-    }
-
-    public static void glEnable(int target) {
     }
 
     public static void glDisable(int target) {
@@ -70,12 +64,6 @@ public final class GL11 {
     public static void glClear(int mask) {
     }
 
-    public static void glClearColor(float red, float green, float blue, float alpha) {
-    }
-
     public static void glClearDepth(double depth) {
-    }
-
-    public static void glScissor(int x, int y, int width, int height) {
     }
 }

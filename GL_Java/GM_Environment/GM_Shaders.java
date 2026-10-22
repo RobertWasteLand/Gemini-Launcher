@@ -1,7 +1,5 @@
 package GL_Java.GM_Environment;
 
-import java.util.Stack;
-
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
@@ -21,9 +19,7 @@ import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoDepthHelper;
 import zombie.iso.IsoGridSquare;
-import zombie.iso.IsoLightSource;
 import zombie.iso.IsoMovingObject;
-import zombie.iso.IsoUtils;
 import zombie.iso.IsoWorld;
 import zombie.iso.weather.ClimateManager;
 import zombie.iso.weather.WeatherShader;
@@ -34,7 +30,6 @@ final class GM_Shaders {
     static final String GM_Check_File = "media/shaders/GM_Environment/GM_Shaders_Screen.frag";
     static final int GM_Ring_Size = 8;
     static final int GM_Players = 4;
-    static final int GM_Lamp_Count = 8;
     static final int GM_Var_Seq = 20;
     static final float GM_Delta = 0.023093667f / 16.0f;
     static final float GM_Fog_Height = 0.6f;
@@ -48,33 +43,18 @@ final class GM_Shaders {
     static final float GM_Mover_Reach = 48.0f;
     static final float GM_Mover_Speed = 2.5f;
     static final float GM_Mover_Radius = 1.1f;
-    static final float GM_Vehicle_Radius = 2.2f;
-    static final int GM_Mirror_Count = 8;
-    static final float GM_Mirror_Reach = 60.0f;
     static final double GM_Fog_Seconds = 150.0;
     static final double GM_Fog_Wrap = 65536.0;
-    static final float GM_Ray_Strength = 0.6f;
-    static final float GM_Refl_Strength = 0.55f;
-    static final float GM_Bloom_Strength = 0.18f;
     static final float GM_Wind_Base = 0.12f;
     static final float GM_Wind_Gain = 0.7f;
     static final float GM_Speed_Cap = 8.0f;
     static final int GM_Unit_Depth = 1;
-    static final int GM_Unit_Rays = 2;
-    static final int GM_Unit_Bloom = 3;
     static final int GM_Unit_Field = 4;
     static final int GM_Unit_Bank = 5;
     static final int GM_Unit_FogTex = 6;
+    static final int GM_Fx_Slots = 10;
     static final int GM_Fx_Fog = 0;
     static final int GM_Fx_Wake = 2;
-    static final int GM_Fx_Shadows = 3;
-    static final int GM_Fx_Reflections = 4;
-    static final int GM_Fx_Shafts = 5;
-    static final int GM_Fx_Glow = 6;
-    private static final int[] GM_Fx_Features = {
-        GM_Features.GM_Fog, GM_Features.GM_Halos, GM_Features.GM_Fog_Wake, GM_Features.GM_Shadows, GM_Features.GM_Reflections,
-        GM_Features.GM_Shafts, GM_Features.GM_Glow, GM_Features.GM_Grade, GM_Features.GM_Glints, GM_Features.GM_Vignette
-    };
     private static final int GL_TEXTURE0 = 0x84C0;
     private static final int GL_TEXTURE_2D = 0x0DE1;
     private static final int GL_ACTIVE_TEXTURE = 0x84E0;
@@ -94,23 +74,16 @@ final class GM_Shaders {
         int usedH;
         float depthRef;
         float sumRef;
-        float sunDirX;
-        float sunDirY;
         float sunAmount;
-        float sunStep;
         final float[] sunColour = new float[3];
         final float[] fogColour = new float[3];
-        final float[] balance = new float[3];
         float fogAmount;
-        float night;
         float indoors;
         float wake;
         float time;
         float fogTime;
         int moverCount;
         final float[] movers = new float[GM_Mover_Count * 4];
-        int mirrorCount;
-        final float[] mirrors = new float[GM_Mirror_Count * 4];
         float dt;
         float windVX;
         float windVY;
@@ -125,9 +98,7 @@ final class GM_Shaders {
         boolean bypass;
         boolean depth;
         int debug;
-        final float[] fx = new float[GM_Fx_Features.length];
-        final float[] lamps = new float[GM_Lamp_Count * 4];
-        final float[] lampColours = new float[GM_Lamp_Count * 3];
+        final float[] fx = new float[GM_Fx_Slots];
     }
 
     static final class GM_Locs {
@@ -192,14 +163,10 @@ final class GM_Shaders {
     private static int GM_Seq;
     private static final GM_Frame[][] GM_Ring = new GM_Frame[GM_Ring_Size][GM_Players];
     private static final GM_Pass[] GM_Passes = new GM_Pass[GM_Ring_Size];
-    private static final float[] GM_Lamp_Best = new float[GM_Lamp_Count];
     private static boolean GM_Shared;
     private static final float[] GM_Sun_Day = {1.0f, 0.97f, 0.88f};
     private static final float[] GM_Sun_Low = {1.0f, 0.74f, 0.52f};
     private static final float[] GM_Sun_Moon = {0.55f, 0.65f, 0.85f};
-    private static final float[] GM_WB_Day = {1.0f, 1.0f, 1.0f};
-    private static final float[] GM_WB_Low = {1.02f, 0.99f, 0.96f};
-    private static final float[] GM_WB_Night = {0.96f, 0.98f, 1.05f};
     private static final GM_Motion[] GM_Motions = new GM_Motion[GM_Players];
     private static final float[] GM_Under_Roof = new float[GM_Players];
     private static final Object[] GM_Mover_Refs = new Object[GM_Track_Count];
@@ -213,21 +180,12 @@ final class GM_Shaders {
     private static double GM_Drift_X;
     private static double GM_Drift_Y;
     private static final GM_Locs GM_Screen_Locs = new GM_Locs();
-    private static int GM_Loc_Rays = -1;
-    private static int GM_Loc_Bloom = -1;
     private static int GM_Loc_Sun = -1;
     private static int GM_Loc_SunCol = -1;
     private static int GM_Loc_FogCol = -1;
-    private static int GM_Loc_Night = -1;
-    private static int GM_Loc_WB = -1;
-    private static int GM_Loc_Str = -1;
     private static int GM_Loc_Fx = -1;
-    private static int GM_Loc_Lamps = -1;
-    private static int GM_Loc_LampCol = -1;
     private static int GM_Loc_Bypass = -1;
     private static int GM_Loc_Debug = -1;
-    private static int GM_Loc_Mirrors = -1;
-    private static int GM_Loc_MirrorCount = -1;
 
     private GM_Shaders() {
     }
@@ -406,9 +364,8 @@ final class GM_Shaders {
             frame.bypass = settings.bypass;
             frame.depth = settings.depth;
             frame.debug = settings.debug;
-            for (int k = 0; k < GM_Fx_Features.length; k++) {
-                frame.fx[k] = settings.GM_Value(GM_Fx_Features[k], 1);
-            }
+            frame.fx[GM_Fx_Fog] = settings.GM_Value(GM_Features.GM_Fog, 1);
+            frame.fx[GM_Fx_Wake] = settings.GM_Value(GM_Features.GM_Fog_Wake, 1);
             GM_Frame_Fill(frame, p, dt, climate);
         }
         GM_Pass pass = GM_Passes[slot];
@@ -448,7 +405,6 @@ final class GM_Shaders {
         frame.fogX = (float) Math.floor((camX - frame.driftX - GM_Fog_Window * 0.5f) * GM_Fog_Snap) / GM_Fog_Snap;
         frame.fogY = (float) Math.floor((camY - frame.driftY - GM_Fog_Window * 0.5f) * GM_Fog_Snap) / GM_Fog_Snap;
         GM_Env_Fill(frame, climate);
-        GM_Lamps_Fill(frame, level, camX, camY);
         GM_Motion_Fill(frame, p, player, camX, camY, dt);
         IsoGridSquare here = player == null ? null : player.getCurrentSquare();
         float under = here != null && !here.isOutside() ? 1.0f : 0.0f;
@@ -458,44 +414,6 @@ final class GM_Shaders {
         frame.wake = frame.fx[GM_Fx_Wake] * (1.0f - GM_Under_Roof[p]);
         frame.fogTime = (float) ((GameTime.getInstance().getWorldAgeHours() * GM_Fog_Seconds) % GM_Fog_Wrap);
         GM_Movers_Fill(frame, p, player, camX, camY, dt);
-        GM_Mirrors_Fill(frame, p, camX, camY);
-    }
-
-    private static void GM_Mirrors_Fill(GM_Frame frame, int p, float camX, float camY) {
-        frame.mirrorCount = 0;
-        if (frame.fx[GM_Fx_Reflections] < 0.5f) {
-            return;
-        }
-        IsoPlayer[] locals = IsoPlayer.players;
-        for (int i = 0; locals != null && i < locals.length; i++) {
-            GM_Mirror_Put(frame, p, locals[i], camX, camY);
-        }
-        if (GameClient.client) {
-            java.util.ArrayList<IsoPlayer> others = GameClient.instance.getPlayers();
-            for (int i = 0; others != null && i < others.size(); i++) {
-                IsoPlayer other = others.get(i);
-                if (other != null && !other.isLocalPlayer()) {
-                    GM_Mirror_Put(frame, p, other, camX, camY);
-                }
-            }
-        }
-    }
-
-    private static void GM_Mirror_Put(GM_Frame frame, int p, IsoPlayer who, float camX, float camY) {
-        if (who == null || frame.mirrorCount >= GM_Mirror_Count || who.isDead() || who.isInvisible() || who.getVehicle() != null || who.getAlpha(p) < 0.5f) {
-            return;
-        }
-        float x = who.getX();
-        float y = who.getY();
-        if (Math.abs(x - camX) > GM_Mirror_Reach || Math.abs(y - camY) > GM_Mirror_Reach) {
-            return;
-        }
-        int at = frame.mirrorCount * 4;
-        frame.mirrors[at] = x;
-        frame.mirrors[at + 1] = y;
-        frame.mirrors[at + 2] = who.getZ();
-        frame.mirrors[at + 3] = 0.0f;
-        frame.mirrorCount++;
     }
 
     private static void GM_Movers_Fill(GM_Frame frame, int p, IsoPlayer player, float camX, float camY, float dt) {
@@ -508,7 +426,7 @@ final class GM_Shaders {
         }
         if (player != null && frame.wake > 0.0f) {
             float speed = (float) Math.sqrt(frame.playerVX * frame.playerVX + frame.playerVY * frame.playerVY);
-            GM_Mover_Put(frame, frame.playerX, frame.playerY, speed, GM_Mover_Radius);
+            GM_Mover_Put(frame, frame.playerX, frame.playerY, speed);
         }
         int next = 0;
         IsoWorld world = IsoWorld.instance;
@@ -519,22 +437,13 @@ final class GM_Shaders {
                 for (int i = 0; others != null && i < others.size() && next < GM_Track_Count; i++) {
                     IsoPlayer other = others.get(i);
                     if (other != null && !other.isLocalPlayer()) {
-                        next = GM_Mover_Track(frame, other, next, camX, camY, dt, GM_Mover_Radius);
+                        next = GM_Mover_Track(frame, other, next, camX, camY, dt);
                     }
-                }
-            }
-            java.util.Set<zombie.vehicles.BaseVehicle> vehicles = cell.getVehicles();
-            if (vehicles != null) {
-                for (zombie.vehicles.BaseVehicle vehicle : vehicles) {
-                    if (next >= GM_Track_Count) {
-                        break;
-                    }
-                    next = GM_Mover_Track(frame, vehicle, next, camX, camY, dt, GM_Vehicle_Radius);
                 }
             }
             java.util.ArrayList<zombie.characters.IsoZombie> zombies = cell.getZombieList();
             for (int i = 0; zombies != null && i < zombies.size() && next < GM_Track_Count; i++) {
-                next = GM_Mover_Track(frame, zombies.get(i), next, camX, camY, dt, GM_Mover_Radius);
+                next = GM_Mover_Track(frame, zombies.get(i), next, camX, camY, dt);
             }
         }
         GM_Movers_Keep(next);
@@ -552,7 +461,7 @@ final class GM_Shaders {
         GM_Mover_Shift = 0;
     }
 
-    private static int GM_Mover_Track(GM_Frame frame, IsoMovingObject mover, int next, float camX, float camY, float dt, float radius) {
+    private static int GM_Mover_Track(GM_Frame frame, IsoMovingObject mover, int next, float camX, float camY, float dt) {
         if (mover == null) {
             return next;
         }
@@ -585,11 +494,11 @@ final class GM_Shaders {
         GM_Mover_Next[next] = mover;
         GM_Mover_Pos[next * 2] = x;
         GM_Mover_Pos[next * 2 + 1] = y;
-        GM_Mover_Put(frame, x, y, speed, radius);
+        GM_Mover_Put(frame, x, y, speed);
         return next + 1;
     }
 
-    private static void GM_Mover_Put(GM_Frame frame, float x, float y, float speed, float radius) {
+    private static void GM_Mover_Put(GM_Frame frame, float x, float y, float speed) {
         float strength = GM_Clamp(speed / GM_Mover_Speed, 0.0f, 1.0f);
         if (strength < 0.08f || frame.moverCount >= GM_Mover_Count) {
             return;
@@ -598,7 +507,7 @@ final class GM_Shaders {
         frame.movers[at] = x;
         frame.movers[at + 1] = y;
         frame.movers[at + 2] = strength;
-        frame.movers[at + 3] = radius;
+        frame.movers[at + 3] = GM_Mover_Radius;
         frame.moverCount++;
     }
 
@@ -619,14 +528,9 @@ final class GM_Shaders {
         float duskK = 1.0f - GM_Clamp(Math.abs(hour - dusk) / 1.5f, 0.0f, 1.0f);
         float lowSun = Math.max(dawnK, duskK);
         float night = GM_Clamp(climate.getNightStrength(), 0.0f, 1.0f);
-        frame.night = night;
         frame.sunAmount = GM_Mix(GM_Mix(0.6f, 1.0f, lowSun), 0.2f, night);
-        frame.sunStep = GM_Mix(GM_Mix(0.6f, 1.1f, lowSun), 0.9f, night);
         for (int i = 0; i < 3; i++) {
             frame.sunColour[i] = GM_Mix(GM_Mix(GM_Sun_Day[i], GM_Sun_Low[i], lowSun), GM_Sun_Moon[i], night);
-        }
-        for (int i = 0; i < 3; i++) {
-            frame.balance[i] = GM_Mix(GM_Mix(GM_WB_Day[i], GM_WB_Low[i], lowSun), GM_WB_Night[i], night);
         }
         Color exterior = climate.getGlobalLight().getExterior();
         float r = GM_Clamp(exterior.r, 0.0f, 1.0f);
@@ -641,76 +545,6 @@ final class GM_Shaders {
         }
         float fog = GM_Clamp(climate.getFogIntensity(), 0.0f, 1.0f);
         frame.fogAmount = Math.max(fog, dawnK * 0.15f + night * 0.05f);
-        float dirX = -0.62f;
-        float dirY = -0.78f;
-        float len = (float) Math.sqrt(dirX * dirX + dirY * dirY);
-        frame.sunDirX = dirX / len;
-        frame.sunDirY = dirY / len;
-    }
-
-    private static void GM_Lamps_Fill(GM_Frame frame, int level, float camX, float camY) {
-        float[] lamps = frame.lamps;
-        float[] colours = frame.lampColours;
-        java.util.Arrays.fill(lamps, 0.0f);
-        java.util.Arrays.fill(colours, 0.0f);
-        IsoWorld world = IsoWorld.instance;
-        if (world == null) {
-            return;
-        }
-        IsoCell cell = world.getCell();
-        if (cell == null) {
-            return;
-        }
-        Stack<IsoLightSource> lights = cell.getLamppostPositions();
-        if (lights == null) {
-            return;
-        }
-        float screenW = IsoCamera.getScreenWidth(frame.player);
-        float screenH = IsoCamera.getScreenHeight(frame.player);
-        float pxPerTile = 49.0f / frame.zoom * (frame.tileScale / 2.0f);
-        int filled = 0;
-        float[] best = GM_Lamp_Best;
-        for (int i = 0; i < lights.size(); i++) {
-            IsoLightSource light = lights.get(i);
-            if (light == null || !light.active || light.z != level || light.radius <= 0) {
-                continue;
-            }
-            float sx = (IsoUtils.XToScreen(light.x + 0.5f, light.y + 0.5f, 0.0f, 0) - frame.offX) / frame.zoom;
-            float sy = (IsoUtils.YToScreen(light.x + 0.5f, light.y + 0.5f, light.z + 0.7f, 0) - frame.offY) / frame.zoom;
-            float margin = screenW * 0.25f;
-            if (sx < -margin || sy < -margin || sx > screenW + margin || sy > screenH + margin) {
-                continue;
-            }
-            float dx = light.x - camX;
-            float dy = light.y - camY;
-            float dist = dx * dx + dy * dy;
-            int at = -1;
-            if (filled < GM_Lamp_Count) {
-                at = filled++;
-            } else {
-                int worst = 0;
-                for (int k = 1; k < GM_Lamp_Count; k++) {
-                    if (best[k] > best[worst]) {
-                        worst = k;
-                    }
-                }
-                if (best[worst] > dist) {
-                    at = worst;
-                }
-            }
-            if (at < 0) {
-                continue;
-            }
-            best[at] = dist;
-            float radius = Math.min(light.radius, 10) * pxPerTile;
-            lamps[at * 4] = sx;
-            lamps[at * 4 + 1] = sy;
-            lamps[at * 4 + 2] = radius;
-            lamps[at * 4 + 3] = 1.0f;
-            colours[at * 3] = GM_Clamp(light.r, 0.0f, 1.0f);
-            colours[at * 3 + 1] = GM_Clamp(light.g, 0.0f, 1.0f);
-            colours[at * 3 + 2] = GM_Clamp(light.b, 0.0f, 1.0f);
-        }
     }
 
     private static void GM_Motion_Fill(GM_Frame frame, int p, IsoPlayer player, float camX, float camY, float dt) {
@@ -788,21 +622,12 @@ final class GM_Shaders {
         GM_Locs locs = GM_Screen_Locs;
         if (program != locs.program) {
             locs.GM_Find(program);
-            GM_Loc_Rays = GL20.glGetUniformLocation(program, "GM_Rays");
-            GM_Loc_Bloom = GL20.glGetUniformLocation(program, "GM_Bloom");
             GM_Loc_Sun = GL20.glGetUniformLocation(program, "GM_Sun");
             GM_Loc_SunCol = GL20.glGetUniformLocation(program, "GM_SunCol");
             GM_Loc_FogCol = GL20.glGetUniformLocation(program, "GM_FogCol");
-            GM_Loc_Night = GL20.glGetUniformLocation(program, "GM_Night");
-            GM_Loc_WB = GL20.glGetUniformLocation(program, "GM_WB");
-            GM_Loc_Str = GL20.glGetUniformLocation(program, "GM_Str");
             GM_Loc_Fx = GL20.glGetUniformLocation(program, "GM_Fx");
-            GM_Loc_Lamps = GL20.glGetUniformLocation(program, "GM_Lamps");
-            GM_Loc_LampCol = GL20.glGetUniformLocation(program, "GM_LampCol");
             GM_Loc_Bypass = GL20.glGetUniformLocation(program, "GM_Bypass");
             GM_Loc_Debug = GL20.glGetUniformLocation(program, "GM_Debug");
-            GM_Loc_Mirrors = GL20.glGetUniformLocation(program, "GM_Mirrors");
-            GM_Loc_MirrorCount = GL20.glGetUniformLocation(program, "GM_MirrorCount");
         }
         if (locs.view < 0) {
             return;
@@ -815,10 +640,6 @@ final class GM_Shaders {
             if (GM_Settings.GM_Test("screen")) {
                 throw new IllegalStateException("test failure: screen");
             }
-            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Rays);
-            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Rays_Texture());
-            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Bloom);
-            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Bloom_Texture());
             GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_FogTex);
             GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
             field = GM_Field.GM_Upload(GM_Unit_Field, GM_Unit_Bank);
@@ -828,8 +649,6 @@ final class GM_Shaders {
             GL13.glActiveTexture(unit);
         }
         GL20.glUniform1i(locs.depth, GM_Unit_Depth);
-        GL20.glUniform1i(GM_Loc_Rays, GM_Unit_Rays);
-        GL20.glUniform1i(GM_Loc_Bloom, GM_Unit_Bloom);
         GL20.glUniform1i(locs.field, GM_Unit_Field);
         if (locs.bank >= 0 && locs.indoors >= 0) {
             GL20.glUniform1i(locs.bank, GM_Unit_Bank);
@@ -837,21 +656,12 @@ final class GM_Shaders {
         }
         GL20.glUniform1i(locs.fogTex, GM_Unit_FogTex);
         GM_Uniforms(frame, field, locs);
-        GL20.glUniform4f(GM_Loc_Sun, frame.sunDirX, frame.sunDirY, frame.sunAmount, GM_Ray_Strength);
+        GL20.glUniform4f(GM_Loc_Sun, 0.0f, 0.0f, frame.sunAmount, 0.0f);
         GL20.glUniform3fv(GM_Loc_SunCol, frame.sunColour);
         GL20.glUniform3fv(GM_Loc_FogCol, frame.fogColour);
-        GL20.glUniform1f(GM_Loc_Night, frame.night);
-        GL20.glUniform3fv(GM_Loc_WB, frame.balance);
-        GL20.glUniform4f(GM_Loc_Str, GM_Refl_Strength, GM_Bloom_Strength, 0.0f, 0.0f);
         GL20.glUniform1fv(GM_Loc_Fx, frame.fx);
-        GL20.glUniform4fv(GM_Loc_Lamps, frame.lamps);
-        GL20.glUniform3fv(GM_Loc_LampCol, frame.lampColours);
         GL20.glUniform1f(GM_Loc_Bypass, frame.bypass ? 1.0f : 0.0f);
         GL20.glUniform1f(GM_Loc_Debug, frame.debug);
-        if (GM_Loc_Mirrors >= 0 && GM_Loc_MirrorCount >= 0) {
-            GL20.glUniform4fv(GM_Loc_Mirrors, frame.mirrors);
-            GL20.glUniform1i(GM_Loc_MirrorCount, frame.mirrorCount);
-        }
     }
 
     static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, GM_Locs locs) {
@@ -907,12 +717,5 @@ final class GM_Shaders {
             return result;
         }
         return false;
-    }
-
-    static void GM_Water_Depth(boolean shore, int count) {
-        if (shore || count <= 0 || !GM_Active() || !GM_Settings.GM_Get().depth) {
-            return;
-        }
-        GM_Pass.GM_Water_Depth(count);
     }
 }

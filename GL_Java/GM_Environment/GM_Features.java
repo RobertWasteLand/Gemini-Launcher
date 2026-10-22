@@ -30,14 +30,6 @@ final class GM_Features {
     static final int GM_Water_Style = GM_Index("GM_Water_Style");
     static final int GM_Fog = GM_Index("GM_Fog");
     static final int GM_Fog_Wake = GM_Index("GM_Fog_Wake");
-    static final int GM_Reflections = GM_Index("GM_Reflections");
-    static final int GM_Glints = GM_Index("GM_Glints");
-    static final int GM_Shadows = GM_Index("GM_Shadows");
-    static final int GM_Shafts = GM_Index("GM_Shafts");
-    static final int GM_Halos = GM_Index("GM_Halos");
-    static final int GM_Glow = GM_Index("GM_Glow");
-    static final int GM_Grade = GM_Index("GM_Grade");
-    static final int GM_Vignette = GM_Index("GM_Vignette");
 
     private GM_Features() {
     }
@@ -92,10 +84,6 @@ final class GM_Features {
                 case "switch":
                     min = 0;
                     max = 1;
-                    break;
-                case "level":
-                    min = 0;
-                    max = 2;
                     break;
                 case "slider":
                     if (kind.length != 3) {

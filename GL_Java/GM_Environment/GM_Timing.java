@@ -16,10 +16,8 @@ final class GM_Timing {
     static final int GM_Begin = 0;
     static final int GM_Blit = 1;
     static final int GM_Fog = 2;
-    static final int GM_Rays = 3;
-    static final int GM_Bloom = 4;
-    static final int GM_End = 5;
-    private static final int GM_Stamps = 6;
+    static final int GM_End = 3;
+    private static final int GM_Stamps = 4;
     private static final int GM_Water_Max = 32;
     private static final int GM_Queries = GM_Stamps + GM_Water_Max * 2;
     private static final int GM_Depth = 3;
@@ -27,7 +25,7 @@ final class GM_Timing {
     private static final int GL_TIMESTAMP = 0x8E28;
     private static final int GL_QUERY_RESULT = 0x8866;
     private static final int GL_QUERY_RESULT_AVAILABLE = 0x8867;
-    private static final String[] GM_Names = {"depth", "fog", "rays", "bloom", "screen"};
+    private static final String[] GM_Names = {"depth", "fog", "screen"};
     static final int GM_Part_Squares = 0;
     static final int GM_Part_Floors = 1;
     static final int GM_Part_Spread = 2;

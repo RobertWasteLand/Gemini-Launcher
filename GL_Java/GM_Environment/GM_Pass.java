@@ -3,7 +3,6 @@ package GL_Java.GM_Environment;
 import java.nio.ByteBuffer;
 
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
@@ -11,19 +10,12 @@ import org.lwjgl.opengl.GL30;
 import zombie.core.Core;
 import zombie.core.SpriteRenderer;
 import zombie.core.opengl.ShaderProgram;
-import zombie.core.skinnedmodel.model.VertexBufferObject;
 import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
 import zombie.core.textures.TextureFBO;
 
 final class GM_Pass extends TextureDraw.GenericDrawer {
-    static final String GM_Name_Rays = "GM_Environment/GM_Shaders_Rays";
-    static final String GM_Name_Bright = "GM_Environment/GM_Shaders_Bright";
-    static final String GM_Name_Blur = "GM_Environment/GM_Shaders_Blur";
-    static final String GM_Name_Depth = "GM_Environment/GM_Shaders_Depth";
     static final String GM_Name_FogSim = "GM_Environment/GM_Shaders_FogSim";
-    static final float GM_Bloom_Threshold = 0.92f;
-    static final float GM_Ray_Pixels = 7.0f;
     static final int GM_Fog_Size = 512;
     static final float GM_Fog_Jump = 40.0f;
 
@@ -31,10 +23,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static final int GL_DEPTH_COMPONENT = 0x1902;
     private static final int GL_DEPTH_COMPONENT24 = 0x81A6;
     private static final int GL_UNSIGNED_INT = 0x1405;
-    private static final int GL_UNSIGNED_BYTE = 0x1401;
-    private static final int GL_UNSIGNED_SHORT = 0x1403;
     private static final int GL_RGBA = 0x1908;
-    private static final int GL_RGBA8 = 0x8058;
     private static final int GL_RGBA16F = 0x881A;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801;
     private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
@@ -70,30 +59,16 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static final int GL_NO_ERROR = 0;
     private static final int GL_OUT_OF_MEMORY = 0x0505;
     private static final int GM_Error_Max = 32;
-    private static final int GL_COLOR_BUFFER_BIT = 0x4000;
     private static final int GM_Margin = 64;
     private static int GM_X0;
     private static int GM_Y0;
     private static int GM_X1;
     private static int GM_Y1;
     private static final int GL_CLIENT_ALL_ATTRIB_BITS = 0xFFFFFFFF;
-    private static final int GL_LESS = 0x0201;
 
-    private static ShaderProgram GM_Prog_Rays;
-    private static ShaderProgram GM_Prog_Bright;
-    private static ShaderProgram GM_Prog_Blur;
-    private static ShaderProgram GM_Prog_Depth;
     private static ShaderProgram GM_Prog_FogSim;
     private static int GM_Depth_Tex;
     private static int GM_Depth_Fbo;
-    private static int GM_Rays_Tex;
-    private static int GM_Rays_Fbo;
-    private static int GM_Bright_Tex;
-    private static int GM_Bright_Fbo;
-    private static int GM_BlurA_Tex;
-    private static int GM_BlurA_Fbo;
-    private static int GM_BlurB_Tex;
-    private static int GM_BlurB_Fbo;
     private static final int[] GM_Fog_Tex = new int[2];
     private static final int[] GM_Fog_Fbo = new int[2];
     private static int GM_Fog_Current;
@@ -104,25 +79,12 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     private static int GM_Vbo;
     private static int GM_W;
     private static int GM_H;
-    private static int GM_Half_W;
-    private static int GM_Half_H;
-    private static int GM_Quarter_W;
-    private static int GM_Quarter_H;
     private static boolean GM_Ready;
     private static final int[] GM_Viewport = new int[4];
 
-    private static final GM_Shaders.GM_Locs GM_Rays_Locs = new GM_Shaders.GM_Locs();
     private static final GM_Shaders.GM_Locs GM_FogSim_Locs = new GM_Shaders.GM_Locs();
-    private static int GM_Rays_Loc_Dir = -1;
-    private static int GM_Rays_Loc_Res = -1;
     private static int GM_FogSim_Loc_Prev = -1;
     private static int GM_FogSim_Loc_Sim = -1;
-    private static int GM_Bright_Program;
-    private static int GM_Blur_Program;
-    private static int GM_Bright_Loc_Scene = -1;
-    private static int GM_Bright_Loc_Threshold = -1;
-    private static int GM_Blur_Loc_Source = -1;
-    private static int GM_Blur_Loc_Delta = -1;
 
     private GM_Shaders.GM_Frame frame;
 
@@ -133,14 +95,6 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
 
     static int GM_Depth_Texture() {
         return GM_Depth_Tex;
-    }
-
-    static int GM_Rays_Texture() {
-        return GM_Rays_Tex;
-    }
-
-    static int GM_Bloom_Texture() {
-        return GM_BlurB_Tex;
     }
 
     static int GM_Fog_Texture() {
@@ -160,12 +114,8 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     }
 
     static boolean GM_Create() {
-        GM_Prog_Rays = GM_Program(GM_Name_Rays);
-        GM_Prog_Bright = GM_Program(GM_Name_Bright);
-        GM_Prog_Blur = GM_Program(GM_Name_Blur);
-        GM_Prog_Depth = GM_Program(GM_Name_Depth);
         GM_Prog_FogSim = GM_Program(GM_Name_FogSim);
-        if (GM_Prog_Rays == null || GM_Prog_Bright == null || GM_Prog_Blur == null || GM_Prog_Depth == null || GM_Prog_FogSim == null) {
+        if (GM_Prog_FogSim == null) {
             return false;
         }
         GM_Locations();
@@ -185,7 +135,7 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         if (GM_Fog_Tex[0] == 0) {
             GM_Memory_Clear();
             for (int i = 0; i < 2; i++) {
-                GM_Fog_Tex[i] = GM_Texture_Make(GM_Fog_Size, GM_Fog_Size, false, true);
+                GM_Fog_Tex[i] = GM_Texture_Make(GM_Fog_Size, GM_Fog_Size, false);
                 GM_Fog_Fbo[i] = GM_Fbo_Make(GM_Fog_Tex[i], false);
             }
             GM_Memory_Check("fog");
@@ -204,29 +154,11 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     }
 
     private static void GM_Locations() {
-        int rays = GM_Id(GM_Prog_Rays, GM_Name_Rays);
-        if (rays != GM_Rays_Locs.program) {
-            GM_Rays_Locs.GM_Find(rays);
-            GM_Rays_Loc_Dir = GL20.glGetUniformLocation(rays, "GM_RayDir");
-            GM_Rays_Loc_Res = GL20.glGetUniformLocation(rays, "GM_RayRes");
-        }
         int sim = GM_Id(GM_Prog_FogSim, GM_Name_FogSim);
         if (sim != GM_FogSim_Locs.program) {
             GM_FogSim_Locs.GM_Find(sim);
             GM_FogSim_Loc_Prev = GL20.glGetUniformLocation(sim, "GM_FogRectPrev");
             GM_FogSim_Loc_Sim = GL20.glGetUniformLocation(sim, "GM_FogSim");
-        }
-        int bright = GM_Id(GM_Prog_Bright, GM_Name_Bright);
-        if (bright != GM_Bright_Program) {
-            GM_Bright_Program = bright;
-            GM_Bright_Loc_Scene = GL20.glGetUniformLocation(bright, "GM_Scene");
-            GM_Bright_Loc_Threshold = GL20.glGetUniformLocation(bright, "GM_Threshold");
-        }
-        int blur = GM_Id(GM_Prog_Blur, GM_Name_Blur);
-        if (blur != GM_Blur_Program) {
-            GM_Blur_Program = blur;
-            GM_Blur_Loc_Source = GL20.glGetUniformLocation(blur, "GM_Source");
-            GM_Blur_Loc_Delta = GL20.glGetUniformLocation(blur, "GM_Delta");
         }
     }
 
@@ -239,15 +171,13 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         return program;
     }
 
-    private static int GM_Texture_Make(int width, int height, boolean depth, boolean half) {
+    private static int GM_Texture_Make(int width, int height, boolean depth) {
         int texture = GL11.glGenTextures();
         GL11.glBindTexture(GL_TEXTURE_2D, texture);
         if (depth) {
             GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, (ByteBuffer) null);
-        } else if (half) {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
         } else {
-            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, (ByteBuffer) null);
+            GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_FLOAT, (ByteBuffer) null);
         }
         int filter = depth ? GL_NEAREST : GL_LINEAR;
         GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
@@ -276,17 +206,9 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
 
     private static void GM_Release() {
         if (GM_Depth_Fbo != 0) GL30.glDeleteFramebuffers(GM_Depth_Fbo);
-        if (GM_Rays_Fbo != 0) GL30.glDeleteFramebuffers(GM_Rays_Fbo);
-        if (GM_Bright_Fbo != 0) GL30.glDeleteFramebuffers(GM_Bright_Fbo);
-        if (GM_BlurA_Fbo != 0) GL30.glDeleteFramebuffers(GM_BlurA_Fbo);
-        if (GM_BlurB_Fbo != 0) GL30.glDeleteFramebuffers(GM_BlurB_Fbo);
         if (GM_Depth_Tex != 0) GL11.glDeleteTextures(GM_Depth_Tex);
-        if (GM_Rays_Tex != 0) GL11.glDeleteTextures(GM_Rays_Tex);
-        if (GM_Bright_Tex != 0) GL11.glDeleteTextures(GM_Bright_Tex);
-        if (GM_BlurA_Tex != 0) GL11.glDeleteTextures(GM_BlurA_Tex);
-        if (GM_BlurB_Tex != 0) GL11.glDeleteTextures(GM_BlurB_Tex);
-        GM_Depth_Fbo = GM_Rays_Fbo = GM_Bright_Fbo = GM_BlurA_Fbo = GM_BlurB_Fbo = 0;
-        GM_Depth_Tex = GM_Rays_Tex = GM_Bright_Tex = GM_BlurA_Tex = GM_BlurB_Tex = 0;
+        GM_Depth_Fbo = 0;
+        GM_Depth_Tex = 0;
     }
 
     private static void GM_Memory_Clear() {
@@ -310,11 +232,9 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
 
     private static long GM_Bytes(int width, int height) {
         long full = (long) width * height * 4L;
-        long half = (long) Math.max(1, width / 2) * Math.max(1, height / 2) * 4L * 2L;
-        long quarter = (long) Math.max(1, width / 4) * Math.max(1, height / 4) * 4L * 2L;
         long fog = (long) GM_Fog_Size * GM_Fog_Size * 8L * 2L;
         long field = (long) GM_Field.GM_Size * GM_Field.GM_Size * 4L * 2L;
-        return full + half + quarter + fog + field;
+        return full + fog + field;
     }
 
     private static void GM_Resize(int width, int height) {
@@ -322,28 +242,12 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Memory_Clear();
         GM_W = width;
         GM_H = height;
-        GM_Half_W = Math.max(1, width / 2);
-        GM_Half_H = Math.max(1, height / 2);
-        GM_Quarter_W = Math.max(1, width / 4);
-        GM_Quarter_H = Math.max(1, height / 4);
-        GM_Depth_Tex = GM_Texture_Make(width, height, true, false);
+        GM_Depth_Tex = GM_Texture_Make(width, height, true);
         GM_Depth_Fbo = GM_Fbo_Make(GM_Depth_Tex, true);
         if (GM_Settings.GM_Test("resize")) {
             throw new IllegalStateException("test failure: resize");
         }
-        GM_Rays_Tex = GM_Texture_Make(GM_Half_W, GM_Half_H, false, false);
-        GM_Rays_Fbo = GM_Fbo_Make(GM_Rays_Tex, false);
-        GM_Bright_Tex = GM_Texture_Make(GM_Half_W, GM_Half_H, false, false);
-        GM_Bright_Fbo = GM_Fbo_Make(GM_Bright_Tex, false);
-        GM_BlurA_Tex = GM_Texture_Make(GM_Quarter_W, GM_Quarter_H, false, false);
-        GM_BlurA_Fbo = GM_Fbo_Make(GM_BlurA_Tex, false);
-        GM_BlurB_Tex = GM_Texture_Make(GM_Quarter_W, GM_Quarter_H, false, false);
-        GM_BlurB_Fbo = GM_Fbo_Make(GM_BlurB_Tex, false);
-        GM_Clear(GM_Depth_Fbo, true);
-        GM_Clear(GM_Rays_Fbo, false);
-        GM_Clear(GM_Bright_Fbo, false);
-        GM_Clear(GM_BlurA_Fbo, false);
-        GM_Clear(GM_BlurB_Fbo, false);
+        GM_Clear_Depth(GM_Depth_Fbo);
         GM_Memory_Check("screen effect");
         System.out.println("[GL_Java] GM_Environment effects use " + (GM_Bytes(width, height) + 524288L) / 1048576L + " MB of video memory at " + width + "x" + height);
     }
@@ -413,20 +317,10 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             if (GM_Settings.GM_Test("pass")) {
                 throw new IllegalStateException("test failure: pass");
             }
-            float[] fx = this.frame.fx;
-            if (fx[GM_Shaders.GM_Fx_Fog] > 0.5f) {
+            if (this.frame.fx[GM_Shaders.GM_Fx_Fog] > 0.5f) {
                 GM_Fog_Draw();
             }
             GM_Timing.GM_Stamp(GM_Timing.GM_Fog);
-            GL11.glEnable(GL_SCISSOR_TEST);
-            if (fx[GM_Shaders.GM_Fx_Shadows] > 0.5f || fx[GM_Shaders.GM_Fx_Shafts] > 0.5f) {
-                GM_Rays_Draw();
-            }
-            GM_Timing.GM_Stamp(GM_Timing.GM_Rays);
-            if (fx[GM_Shaders.GM_Fx_Glow] > 0.5f) {
-                GM_Bloom_Draw(world.getTexture().getID());
-            }
-            GM_Timing.GM_Stamp(GM_Timing.GM_Bloom);
         } finally {
             GL30.glBindVertexArray(prevVao);
             GL30.glBindFramebuffer(GL_FRAMEBUFFER, prevFbo);
@@ -461,26 +355,12 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Y1 = y1;
     }
 
-    private static void GM_Scissor(int scale, int limitW, int limitH) {
-        int x0 = GM_X0 / scale;
-        int y0 = GM_Y0 / scale;
-        int x1 = Math.min(limitW, (GM_X1 + scale - 1) / scale);
-        int y1 = Math.min(limitH, (GM_Y1 + scale - 1) / scale);
-        GL11.glScissor(x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0));
-    }
-
-    private static void GM_Clear(int fbo, boolean depth) {
+    private static void GM_Clear_Depth(int fbo) {
         GL30.glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         GL11.glDisable(GL_SCISSOR_TEST);
-        if (depth) {
-            GL11.glDepthMask(true);
-            GL11.glClearDepth(1.0);
-            GL11.glClear(GL_DEPTH_BUFFER_BIT);
-        } else {
-            GL11.glColorMask(true, true, true, true);
-            GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-            GL11.glClear(GL_COLOR_BUFFER_BIT);
-        }
+        GL11.glDepthMask(true);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL_DEPTH_BUFFER_BIT);
     }
 
     private void GM_Fog_Draw() {
@@ -504,72 +384,4 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Fog_Fresh = false;
     }
 
-    private void GM_Rays_Draw() {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_Rays_Fbo);
-        GL11.glViewport(0, 0, GM_Half_W, GM_Half_H);
-        GM_Scissor(2, GM_Half_W, GM_Half_H);
-        GL20.glUseProgram(GM_Prog_Rays.getShaderID());
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Depth_Tex);
-        GL13.glActiveTexture(GL_TEXTURE0 + 1);
-        GL11.glBindTexture(GL_TEXTURE_2D, 0);
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL20.glUniform1i(GM_Rays_Locs.depth, 0);
-        GL20.glUniform1i(GM_Rays_Locs.field, 1);
-        GL20.glUniform1i(GM_Rays_Locs.fogTex, 1);
-        GM_Shaders.GM_Uniforms(this.frame, null, GM_Rays_Locs);
-        float step = GM_Ray_Pixels * this.frame.sunStep * (this.frame.tileScale / 2.0f) / Math.max(0.25f, this.frame.zoom) * 1.5f;
-        GL20.glUniform4f(GM_Rays_Loc_Dir, this.frame.sunDirX, this.frame.sunDirY, step, 0.0f);
-        GL20.glUniform2f(GM_Rays_Loc_Res, GM_Half_W, GM_Half_H);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
-    }
-
-    private void GM_Bloom_Draw(int sceneTexture) {
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_Bright_Fbo);
-        GL11.glViewport(0, 0, GM_Half_W, GM_Half_H);
-        GM_Scissor(2, GM_Half_W, GM_Half_H);
-        GL20.glUseProgram(GM_Prog_Bright.getShaderID());
-        GL13.glActiveTexture(GL_TEXTURE0);
-        GL11.glBindTexture(GL_TEXTURE_2D, sceneTexture);
-        GL20.glUniform1i(GM_Bright_Loc_Scene, 0);
-        GL20.glUniform1f(GM_Bright_Loc_Threshold, GM_Bloom_Threshold);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
-        GL20.glUseProgram(GM_Prog_Blur.getShaderID());
-        GL20.glUniform1i(GM_Blur_Loc_Source, 0);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_BlurA_Fbo);
-        GL11.glViewport(0, 0, GM_Quarter_W, GM_Quarter_H);
-        GM_Scissor(4, GM_Quarter_W, GM_Quarter_H);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_Bright_Tex);
-        GL20.glUniform2f(GM_Blur_Loc_Delta, 1.0f / GM_Quarter_W, 0.0f);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
-        GL30.glBindFramebuffer(GL_FRAMEBUFFER, GM_BlurB_Fbo);
-        GL11.glBindTexture(GL_TEXTURE_2D, GM_BlurA_Tex);
-        GL20.glUniform2f(GM_Blur_Loc_Delta, 0.0f, 1.0f / GM_Quarter_H);
-        GL11.glDrawArrays(GL_TRIANGLES, 0, 3);
-    }
-
-    static void GM_Water_Depth(int count) {
-        if (!GM_Ready || GM_Prog_Depth == null) {
-            return;
-        }
-        int depth = GM_Id(GM_Prog_Depth, GM_Name_Depth);
-        int program = GL11.glGetInteger(GL_CURRENT_PROGRAM);
-        try {
-            GL20.glUseProgram(depth);
-            VertexBufferObject.setModelViewProjection(GM_Prog_Depth);
-            GL20.glEnableVertexAttribArray(6);
-            GL11.glColorMask(false, false, false, false);
-            GL11.glDepthMask(true);
-            GL11.glDepthFunc(GL_LESS);
-            if (GM_Settings.GM_Test("depth")) {
-                throw new IllegalStateException("test failure: depth");
-            }
-            GL12.glDrawRangeElements(GL_TRIANGLES, 0, count * 4, count * 6, GL_UNSIGNED_SHORT, 0L);
-        } finally {
-            GL11.glDepthMask(false);
-            GL11.glColorMask(true, true, true, true);
-            GL20.glDisableVertexAttribArray(6);
-            GL20.glUseProgram(program);
-        }
-    }
 }

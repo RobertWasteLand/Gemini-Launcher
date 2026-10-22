@@ -11,9 +11,4 @@ public final class GM_Water_Patch {
     public static void GM_Enter(@Patch.This Object self) {
         GM_Environment.GM_Water_Check(self);
     }
-
-    @Patch.OnExit
-    public static void GM_Exit() {
-        GM_Environment.GM_Water_Drawn();
-    }
 }

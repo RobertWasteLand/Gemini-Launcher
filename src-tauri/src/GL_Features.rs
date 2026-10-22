@@ -14,7 +14,6 @@ pub const GL_Cfg_File: &str = "GM_Environment.cfg";
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum GL_Feature_Kind {
     Switch,
-    Level,
     Slider,
 }
 
@@ -33,7 +32,6 @@ impl GL_Feature {
     pub fn GL_Kind_Name(&self) -> &'static str {
         match self.kind {
             GL_Feature_Kind::Switch => "switch",
-            GL_Feature_Kind::Level => "level",
             GL_Feature_Kind::Slider => "slider",
         }
     }
@@ -62,7 +60,6 @@ fn GL_Feature_Parse(line: &str) -> Option<GL_Feature> {
     let kind: Vec<&str> = columns[1].split_whitespace().collect();
     let (kind, min, max) = match kind.as_slice() {
         ["switch"] => (GL_Feature_Kind::Switch, 0, 1),
-        ["level"] => (GL_Feature_Kind::Level, 0, 2),
         ["slider", min, max] => (GL_Feature_Kind::Slider, min.parse().ok()?, max.parse().ok()?),
         _ => return None,
     };

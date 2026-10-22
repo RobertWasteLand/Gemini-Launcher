@@ -36,12 +36,9 @@ final class GM_Settings {
         this.debug = debug;
         this.values = values;
         this.failTest = failTest;
-        boolean views = bypass || debug > 0;
-        this.screen = views || GM_Any(values, GM_Features.GM_Fog, GM_Features.GM_Halos, GM_Features.GM_Shadows, GM_Features.GM_Shafts,
-            GM_Features.GM_Reflections, GM_Features.GM_Glints, GM_Features.GM_Glow, GM_Features.GM_Grade, GM_Features.GM_Vignette);
-        this.depth = debug > 0 || GM_Any(values, GM_Features.GM_Fog, GM_Features.GM_Shadows, GM_Features.GM_Shafts,
-            GM_Features.GM_Reflections, GM_Features.GM_Glints);
-        this.field = debug > 0 || GM_Any(values, GM_Features.GM_Water, GM_Features.GM_Fog, GM_Features.GM_Reflections, GM_Features.GM_Glints);
+        this.screen = bypass || debug > 0 || GM_Any(values, GM_Features.GM_Fog);
+        this.depth = debug > 0 || GM_Any(values, GM_Features.GM_Fog);
+        this.field = debug > 0 || GM_Any(values, GM_Features.GM_Water, GM_Features.GM_Fog);
     }
 
     private static boolean GM_Any(int[] values, int... features) {
