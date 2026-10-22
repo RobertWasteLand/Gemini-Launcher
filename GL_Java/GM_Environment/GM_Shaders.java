@@ -49,6 +49,8 @@ final class GM_Shaders {
     static final float GM_Mover_Speed = 2.5f;
     static final float GM_Mover_Radius = 1.1f;
     static final float GM_Vehicle_Radius = 2.2f;
+    static final int GM_Mirror_Count = 8;
+    static final float GM_Mirror_Reach = 60.0f;
     static final double GM_Fog_Seconds = 150.0;
     static final double GM_Fog_Wrap = 65536.0;
     static final float GM_Ray_Strength = 0.6f;
@@ -66,6 +68,7 @@ final class GM_Shaders {
     static final int GM_Fx_Fog = 0;
     static final int GM_Fx_Wake = 2;
     static final int GM_Fx_Shadows = 3;
+    static final int GM_Fx_Reflections = 4;
     static final int GM_Fx_Shafts = 5;
     static final int GM_Fx_Glow = 6;
     private static final int[] GM_Fx_Features = {
@@ -106,6 +109,8 @@ final class GM_Shaders {
         float fogTime;
         int moverCount;
         final float[] movers = new float[GM_Mover_Count * 4];
+        int mirrorCount;
+        final float[] mirrors = new float[GM_Mirror_Count * 4];
         float dt;
         float windVX;
         float windVY;
@@ -221,6 +226,8 @@ final class GM_Shaders {
     private static int GM_Loc_LampCol = -1;
     private static int GM_Loc_Bypass = -1;
     private static int GM_Loc_Debug = -1;
+    private static int GM_Loc_Mirrors = -1;
+    private static int GM_Loc_MirrorCount = -1;
 
     private GM_Shaders() {
     }
@@ -451,6 +458,44 @@ final class GM_Shaders {
         frame.wake = frame.fx[GM_Fx_Wake] * (1.0f - GM_Under_Roof[p]);
         frame.fogTime = (float) ((GameTime.getInstance().getWorldAgeHours() * GM_Fog_Seconds) % GM_Fog_Wrap);
         GM_Movers_Fill(frame, p, player, camX, camY, dt);
+        GM_Mirrors_Fill(frame, p, camX, camY);
+    }
+
+    private static void GM_Mirrors_Fill(GM_Frame frame, int p, float camX, float camY) {
+        frame.mirrorCount = 0;
+        if (frame.fx[GM_Fx_Reflections] < 0.5f) {
+            return;
+        }
+        IsoPlayer[] locals = IsoPlayer.players;
+        for (int i = 0; locals != null && i < locals.length; i++) {
+            GM_Mirror_Put(frame, p, locals[i], camX, camY);
+        }
+        if (GameClient.client) {
+            java.util.ArrayList<IsoPlayer> others = GameClient.instance.getPlayers();
+            for (int i = 0; others != null && i < others.size(); i++) {
+                IsoPlayer other = others.get(i);
+                if (other != null && !other.isLocalPlayer()) {
+                    GM_Mirror_Put(frame, p, other, camX, camY);
+                }
+            }
+        }
+    }
+
+    private static void GM_Mirror_Put(GM_Frame frame, int p, IsoPlayer who, float camX, float camY) {
+        if (who == null || frame.mirrorCount >= GM_Mirror_Count || who.isDead() || who.isInvisible() || who.getVehicle() != null || who.getAlpha(p) < 0.5f) {
+            return;
+        }
+        float x = who.getX();
+        float y = who.getY();
+        if (Math.abs(x - camX) > GM_Mirror_Reach || Math.abs(y - camY) > GM_Mirror_Reach) {
+            return;
+        }
+        int at = frame.mirrorCount * 4;
+        frame.mirrors[at] = x;
+        frame.mirrors[at + 1] = y;
+        frame.mirrors[at + 2] = who.getZ();
+        frame.mirrors[at + 3] = 0.0f;
+        frame.mirrorCount++;
     }
 
     private static void GM_Movers_Fill(GM_Frame frame, int p, IsoPlayer player, float camX, float camY, float dt) {
@@ -756,6 +801,8 @@ final class GM_Shaders {
             GM_Loc_LampCol = GL20.glGetUniformLocation(program, "GM_LampCol");
             GM_Loc_Bypass = GL20.glGetUniformLocation(program, "GM_Bypass");
             GM_Loc_Debug = GL20.glGetUniformLocation(program, "GM_Debug");
+            GM_Loc_Mirrors = GL20.glGetUniformLocation(program, "GM_Mirrors");
+            GM_Loc_MirrorCount = GL20.glGetUniformLocation(program, "GM_MirrorCount");
         }
         if (locs.view < 0) {
             return;
@@ -801,6 +848,10 @@ final class GM_Shaders {
         GL20.glUniform3fv(GM_Loc_LampCol, frame.lampColours);
         GL20.glUniform1f(GM_Loc_Bypass, frame.bypass ? 1.0f : 0.0f);
         GL20.glUniform1f(GM_Loc_Debug, frame.debug);
+        if (GM_Loc_Mirrors >= 0 && GM_Loc_MirrorCount >= 0) {
+            GL20.glUniform4fv(GM_Loc_Mirrors, frame.mirrors);
+            GL20.glUniform1i(GM_Loc_MirrorCount, frame.mirrorCount);
+        }
     }
 
     static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, GM_Locs locs) {

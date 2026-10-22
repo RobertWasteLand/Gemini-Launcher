@@ -12,28 +12,36 @@ import zombie.core.PerformanceSettings;
 import zombie.core.opengl.Shader;
 import zombie.core.opengl.RenderThread;
 import zombie.debug.DebugLog;
-import zombie.debug.DebugOptions;
 import zombie.debug.DebugType;
+import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
+import zombie.iso.IsoObject;
 import zombie.iso.IsoWater;
 import zombie.iso.IsoWaterGeometry;
+import zombie.iso.IsoWorld;
+import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.WaterShader;
+import zombie.iso.fboRenderChunk.ObjectRenderLayer;
+import zombie.iso.sprite.IsoSprite;
 
 public final class GM_Environment {
     static final String GM_Shader_High = "GM_Environment/GM_Water_hq";
     static final String GM_Shader_Medium = "GM_Environment/GM_Water";
     static final String GM_Shader_Check = "media/shaders/GM_Environment/GM_Water_hq.frag";
     static final float GM_Toon_Default = 0.55f;
+    static final int GM_Plant_Reach = 6;
 
-    public static volatile Object GM_ShoreFade;
+    public static volatile boolean GM_Solid_Bank;
+    public static volatile boolean GM_Water_Plants;
+    private static volatile Thread GM_Attach_Thread;
+    private static boolean GM_Cell_Water;
     private static volatile boolean GM_Failed;
     private static volatile boolean GM_Missing;
     private static boolean GM_Shown;
     private static Object GM_Effect;
     private static Object GM_Vanilla_Effect;
-    private static Object GM_ShoreFade_Option;
     private static boolean GM_Field_Idle;
-    private static volatile int GM_Shore_Live = 3;
+    private static volatile int GM_Shore_Live = 7;
     private static volatile boolean GM_Shore_Pending;
     private static int GM_Effect_Quality = -1;
 
@@ -56,7 +64,7 @@ public final class GM_Environment {
             GM_Shaders.GM_Fail("older OpenGL", new IllegalStateException(card));
             GM_Fail("older OpenGL", new IllegalStateException(card));
         }
-        GM_ShoreFade_Find();
+        GM_Layers_Apply();
     }
 
     private static boolean GM_Old_OpenGL() {
@@ -84,11 +92,7 @@ public final class GM_Environment {
             return;
         }
         GM_Failed = true;
-        GM_ShoreFade = null;
-        if (GM_Shore_Live != 0) {
-            GM_Shore_Live = 0;
-            GM_Shore_Pending = true;
-        }
+        GM_Layers_Apply();
         System.out.println("[GL_Java] GM_Environment off: " + what + " (" + t + ")");
         GM_Shaders.GM_Fail("the water side stopped", t);
     }
@@ -104,15 +108,24 @@ public final class GM_Environment {
         GM_Shaders.GM_World_Reset();
     }
 
-    private static boolean GM_Shore_On(GM_Settings settings) {
-        return settings.GM_On(GM_Features.GM_Water) && settings.GM_On(GM_Features.GM_Water_Shore);
-    }
-
     private static int GM_Shore_State(GM_Settings settings) {
-        if (!GM_Shore_On(settings)) {
+        if (GM_Failed || GM_Missing || !settings.GM_On(GM_Features.GM_Water)) {
             return 0;
         }
-        return (GM_Settings.GM_Test("shore_fade") ? 0 : 1) | (GM_Settings.GM_Test("shore_tiles") ? 0 : 2);
+        if (!settings.GM_On(GM_Features.GM_Water_Shore)) {
+            return 4;
+        }
+        return 4 | (GM_Settings.GM_Test("shore_fade") ? 0 : 1) | (GM_Settings.GM_Test("shore_tiles") ? 0 : 2);
+    }
+
+    private static void GM_Layers_Apply() {
+        int state = GM_Shore_State(GM_Settings.GM_Get());
+        GM_Solid_Bank = (state & 1) != 0;
+        GM_Water_Plants = (state & 4) != 0;
+        if (state != GM_Shore_Live) {
+            GM_Shore_Live = state;
+            GM_Shore_Pending = true;
+        }
     }
 
     private static void GM_Settings_Tick(boolean force) {
@@ -123,12 +136,7 @@ public final class GM_Environment {
             if (!GM_Settings.GM_Poll(force)) {
                 return;
             }
-            GM_ShoreFade_Update();
-            int shore = GM_Shore_State(GM_Settings.GM_Get());
-            if (shore != GM_Shore_Live) {
-                GM_Shore_Live = shore;
-                GM_Shore_Pending = true;
-            }
+            GM_Layers_Apply();
         } catch (Throwable t) {
             GM_Fail("settings check failed", t);
         }
@@ -150,20 +158,67 @@ public final class GM_Environment {
         }
     }
 
-    private static void GM_ShoreFade_Find() {
-        if (GM_ShoreFade_Option != null) {
-            return;
-        }
-        try {
-            GM_ShoreFade_Option = DebugOptions.instance.terrain.renderTiles.isoGridSquare.shoreFade;
-        } catch (Throwable t) {
-            GM_Fail("shore fade option not found", t);
-        }
-        GM_ShoreFade_Update();
+    public static boolean GM_Shore_Fade(boolean shore) {
+        return shore && !GM_Solid_Bank;
     }
 
-    private static void GM_ShoreFade_Update() {
-        GM_ShoreFade = !GM_Failed && (GM_Shore_State(GM_Settings.GM_Get()) & 1) != 0 ? GM_ShoreFade_Option : null;
+    public static ObjectRenderLayer GM_Water_Layer(IsoObject object, ObjectRenderLayer layer) {
+        if (!GM_Water_Plants || object == null || (layer != ObjectRenderLayer.MinusFloor && layer != ObjectRenderLayer.Vegetation)) {
+            return layer;
+        }
+        try {
+            IsoSprite sprite = object.getSprite();
+            IsoGridSquare square = object.getSquare();
+            if (sprite == null || square == null || square.z != 0 || sprite.solidfloor || sprite.cutN || sprite.cutW
+                || !(sprite.isBush || sprite.canBeRemoved || sprite.attachedFloor || object.getClass() == IsoObject.class)) {
+                return layer;
+            }
+            IsoWaterGeometry water = square.getWater();
+            if (water != null && (water.hasWater() || water.isbShore())) {
+                return ObjectRenderLayer.Translucent;
+            }
+            return GM_Water_Behind(square) ? ObjectRenderLayer.Translucent : layer;
+        } catch (Throwable t) {
+            GM_Fail("water plant layer failed", t);
+            return layer;
+        }
+    }
+
+    private static boolean GM_Water_Behind(IsoGridSquare square) {
+        IsoWorld world = IsoWorld.instance;
+        IsoCell cell = world == null ? null : world.currentCell;
+        if (cell == null) {
+            return false;
+        }
+        for (int a = 0; a <= GM_Plant_Reach; a++) {
+            for (int b = 0; b <= GM_Plant_Reach; b++) {
+                IsoGridSquare behind = cell.getGridSquare(square.x - a, square.y - b, 0);
+                if (behind != null && behind.has(IsoFlagType.water)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static void GM_Cell_Water_Enter() {
+        GM_Cell_Water = true;
+        GM_Attach_Thread = null;
+    }
+
+    public static void GM_Cell_Water_Exit() {
+        GM_Cell_Water = false;
+        GM_Attach_Thread = null;
+    }
+
+    public static void GM_Water_Drawn() {
+        if (GM_Cell_Water && !GM_Shaders.GM_Off() && GM_Settings.GM_Get().screen) {
+            GM_Attach_Thread = Thread.currentThread();
+        }
+    }
+
+    public static boolean GM_Depth_Write(boolean write) {
+        return write || GM_Attach_Thread == Thread.currentThread();
     }
 
     public static void GM_Water_Check(Object self) {
@@ -202,10 +257,10 @@ public final class GM_Environment {
             }
             if (!ZomboidFileSystem.instance.isKnownFile(GM_Shader_Check)) {
                 GM_Missing = true;
+                GM_Layers_Apply();
                 System.out.println("[GL_Java] GM_Environment off for this world: the GM_Environment mod is not enabled, so its water shaders are not loaded");
                 return;
             }
-            GM_ShoreFade_Find();
             RenderThread.invokeOnRenderContext(() -> GM_Water_Install(water, quality, on));
         } catch (Throwable t) {
             GM_Fail("water check failed", t);

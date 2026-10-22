@@ -3,6 +3,11 @@ package zombie.iso;
 public final class IsoGridSquare {
     public int x;
     public int y;
+    public int z;
+
+    public IsoWaterGeometry getWater() {
+        return null;
+    }
 
     public boolean has(zombie.iso.SpriteDetails.IsoFlagType flag) {
         return false;
