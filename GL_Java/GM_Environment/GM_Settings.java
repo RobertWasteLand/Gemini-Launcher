@@ -9,7 +9,6 @@ import java.util.Properties;
 
 final class GM_Settings {
     static final String GM_File_Name = "GM_Environment.cfg";
-    static final int GM_Debug_Views = 6;
     private static final long GM_Poll_Nanos = 1_000_000_000L;
     private static final boolean GM_Dev = Boolean.getBoolean("GL_Dev");
     private static final GM_Settings GM_Default = new GM_Settings(0L, false, 0, GM_Defaults(), null);
@@ -165,7 +164,7 @@ final class GM_Settings {
         long debug = GM_Long(properties, "GM_Debug", 0L);
         String test = GM_Dev ? properties.getProperty("GM_Fail_Test") : null;
         test = test == null || test.isBlank() ? null : test.trim();
-        return new GM_Settings(GM_Long(properties, "GM_Generation", 0L), GM_Long(properties, "GM_Bypass", 0L) > 0L, debug < 0L || debug > GM_Debug_Views ? 0 : (int) debug, values, test);
+        return new GM_Settings(GM_Long(properties, "GM_Generation", 0L), GM_Long(properties, "GM_Bypass", 0L) > 0L, debug == 1L || debug == 4L || debug == 6L ? (int) debug : 0, values, test);
     }
 
     private static long GM_Long(Properties properties, String key, long fallback) {

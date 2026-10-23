@@ -22,9 +22,6 @@ final class GM_Timing {
     private static final int GM_Queries = GM_Stamps + GM_Water_Max * 2;
     private static final int GM_Depth = 3;
     private static final long GM_Window = 5_000_000_000L;
-    private static final int GL_TIMESTAMP = 0x8E28;
-    private static final int GL_QUERY_RESULT = 0x8866;
-    private static final int GL_QUERY_RESULT_AVAILABLE = 0x8867;
     private static final String[] GM_Names = {"depth", "fog", "screen"};
     static final int GM_Part_Squares = 0;
     static final int GM_Part_Floors = 1;
@@ -41,11 +38,11 @@ final class GM_Timing {
     private static final long[] GM_Field_Max = new long[GM_Field_Parts.length];
     private static final int[] GM_Field_Why = new int[3];
     private static final Object GM_Field_Lock = new Object();
-    private static long GM_Field_Main_Sum;
-    private static long GM_Field_Main_Max;
-    private static long GM_Field_Tick_Max;
-    private static long GM_Field_Work_Sum;
-    private static long GM_Field_Work_Max;
+    private static long GM_Main_Sum;
+    private static long GM_Main_Max;
+    private static long GM_Tick_Max;
+    private static long GM_Work_Sum;
+    private static long GM_Work_Max;
     private static int GM_Field_Works;
     private static long GM_Field_Missing;
     private static int GM_Field_Builds;
@@ -123,7 +120,7 @@ final class GM_Timing {
     private static int GM_Slot;
     private static long GM_Frame;
     private static long GM_Last_End;
-    private static long GM_Last_End_Frame = -2L;
+    private static long GM_Last_Frame = -2L;
     private static long GM_Last_Report;
     private static double GM_Water_Sum;
     private static double GM_Period_Sum;
@@ -210,9 +207,9 @@ final class GM_Timing {
         }
         long spent = System.nanoTime() - start;
         synchronized (GM_Field_Lock) {
-            GM_Field_Work_Sum += spent;
-            if (spent > GM_Field_Work_Max) {
-                GM_Field_Work_Max = spent;
+            GM_Work_Sum += spent;
+            if (spent > GM_Work_Max) {
+                GM_Work_Max = spent;
             }
             GM_Field_Works++;
         }
@@ -225,12 +222,12 @@ final class GM_Timing {
         long now = System.nanoTime();
         StringBuilder line;
         synchronized (GM_Field_Lock) {
-            GM_Field_Main_Sum += spent;
-            if (spent > GM_Field_Main_Max) {
-                GM_Field_Main_Max = spent;
+            GM_Main_Sum += spent;
+            if (spent > GM_Main_Max) {
+                GM_Main_Max = spent;
             }
-            if (slowest > GM_Field_Tick_Max) {
-                GM_Field_Tick_Max = slowest;
+            if (slowest > GM_Tick_Max) {
+                GM_Tick_Max = slowest;
             }
             GM_Field_Why[why]++;
             GM_Field_Builds++;
@@ -247,8 +244,8 @@ final class GM_Timing {
             int builds = GM_Field_Builds;
             int works = GM_Field_Works;
             line = new StringBuilder("[GL_Java] GM field ms: main ");
-            line.append(GM_Ms(GM_Field_Main_Sum / 1.0e6 / builds)).append(" (max ").append(GM_Ms(GM_Field_Main_Max / 1.0e6)).append(") per build, at most ").append(GM_Ms(GM_Field_Tick_Max / 1.0e6)).append(" in one tick | worker ");
-            line.append(works > 0 ? GM_Ms(GM_Field_Work_Sum / 1.0e6 / works) + " (max " + GM_Ms(GM_Field_Work_Max / 1.0e6) + ")" : "-").append(" |");
+            line.append(GM_Ms(GM_Main_Sum / 1.0e6 / builds)).append(" (max ").append(GM_Ms(GM_Main_Max / 1.0e6)).append(") per build, at most ").append(GM_Ms(GM_Tick_Max / 1.0e6)).append(" in one tick | worker ");
+            line.append(works > 0 ? GM_Ms(GM_Work_Sum / 1.0e6 / works) + " (max " + GM_Ms(GM_Work_Max / 1.0e6) + ")" : "-").append(" |");
             for (int k = 0; k < GM_Field_Parts.length; k++) {
                 int count = k <= GM_Part_Floors ? builds : works;
                 line.append(' ').append(GM_Field_Parts[k]).append(' ');
@@ -259,11 +256,11 @@ final class GM_Timing {
             Arrays.fill(GM_Field_Sum, 0L);
             Arrays.fill(GM_Field_Max, 0L);
             Arrays.fill(GM_Field_Why, 0);
-            GM_Field_Main_Sum = 0L;
-            GM_Field_Main_Max = 0L;
-            GM_Field_Tick_Max = 0L;
-            GM_Field_Work_Sum = 0L;
-            GM_Field_Work_Max = 0L;
+            GM_Main_Sum = 0L;
+            GM_Main_Max = 0L;
+            GM_Tick_Max = 0L;
+            GM_Work_Sum = 0L;
+            GM_Work_Max = 0L;
             GM_Field_Missing = 0L;
             GM_Field_Builds = 0;
             GM_Field_Works = 0;
@@ -292,7 +289,7 @@ final class GM_Timing {
             if (!GM_Ready && !GM_Init()) {
                 return;
             }
-            GL33.glQueryCounter(GM_Ids[GM_Slot][stamp], GL_TIMESTAMP);
+            GL33.glQueryCounter(GM_Ids[GM_Slot][stamp], GL33.GL_TIMESTAMP);
             GM_Mask[GM_Slot] |= 1 << stamp;
             if (stamp == GM_End) {
                 GM_Next();
@@ -315,10 +312,10 @@ final class GM_Timing {
                 return;
             }
             if (begin) {
-                GL33.glQueryCounter(GM_Ids[GM_Slot][GM_Stamps + pair * 2], GL_TIMESTAMP);
+                GL33.glQueryCounter(GM_Ids[GM_Slot][GM_Stamps + pair * 2], GL33.GL_TIMESTAMP);
                 GM_Water_Open = true;
             } else if (GM_Water_Open) {
-                GL33.glQueryCounter(GM_Ids[GM_Slot][GM_Stamps + pair * 2 + 1], GL_TIMESTAMP);
+                GL33.glQueryCounter(GM_Ids[GM_Slot][GM_Stamps + pair * 2 + 1], GL33.GL_TIMESTAMP);
                 GM_Pairs[GM_Slot] = pair + 1;
                 GM_Water_Open = false;
             }
@@ -366,7 +363,7 @@ final class GM_Timing {
     }
 
     private static boolean GM_Available(int id) {
-        return GL15.glGetQueryObjecti(id, GL_QUERY_RESULT_AVAILABLE) != 0;
+        return GL15.glGetQueryObjecti(id, GL15.GL_QUERY_RESULT_AVAILABLE) != 0;
     }
 
     private static void GM_Collect(int slot) {
@@ -391,7 +388,7 @@ final class GM_Timing {
         long[] t = GM_Times;
         for (int k = 0; k < GM_Stamps; k++) {
             if ((mask & (1 << k)) != 0) {
-                t[k] = GL33.glGetQueryObjecti64(ids[k], GL_QUERY_RESULT);
+                t[k] = GL33.glGetQueryObjecti64(ids[k], GL15.GL_QUERY_RESULT);
             }
         }
         for (int k = 0; k < GM_Stamps - 1; k++) {
@@ -402,17 +399,17 @@ final class GM_Timing {
             }
         }
         for (int p = 0; p < pairs; p++) {
-            long a = GL33.glGetQueryObjecti64(ids[GM_Stamps + p * 2], GL_QUERY_RESULT);
-            long b = GL33.glGetQueryObjecti64(ids[GM_Stamps + p * 2 + 1], GL_QUERY_RESULT);
+            long a = GL33.glGetQueryObjecti64(ids[GM_Stamps + p * 2], GL15.GL_QUERY_RESULT);
+            long b = GL33.glGetQueryObjecti64(ids[GM_Stamps + p * 2 + 1], GL15.GL_QUERY_RESULT);
             GM_Water_Sum += (b - a) / 1.0e6;
         }
         long end = t[GM_End];
-        if (GM_Frame_Of[slot] == GM_Last_End_Frame + 1) {
+        if (GM_Frame_Of[slot] == GM_Last_Frame + 1) {
             GM_Period_Sum += (end - GM_Last_End) / 1.0e6;
             GM_Periods++;
         }
         GM_Last_End = end;
-        GM_Last_End_Frame = GM_Frame_Of[slot];
+        GM_Last_Frame = GM_Frame_Of[slot];
         GM_Samples++;
     }
 

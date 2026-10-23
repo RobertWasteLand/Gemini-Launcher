@@ -25,9 +25,9 @@ import zombie.iso.fboRenderChunk.ObjectRenderLayer;
 import zombie.iso.sprite.IsoSprite;
 
 public final class GM_Environment {
-    static final String GM_Shader_High = "GM_Environment/GM_Water_hq";
+    static final String GM_Shader_High = "GM_Environment/GM_Water_High";
     static final String GM_Shader_Medium = "GM_Environment/GM_Water";
-    static final String GM_Shader_Check = "media/shaders/GM_Environment/GM_Water_hq.frag";
+    static final String GM_Shader_Check = "media/shaders/GM_Environment/GM_Water.frag";
     static final float GM_Toon_Default = 0.55f;
     static final int GM_Plant_Reach = 6;
 
@@ -57,7 +57,7 @@ public final class GM_Environment {
         if (changed != null) {
             GM_Shaders.GM_Fail("game check failed", new IllegalStateException(changed));
             GM_Fail("game check failed", new IllegalStateException(changed));
-        } else if (GM_Settings.GM_Test("opengl") || GM_Old_OpenGL()) {
+        } else if (GM_Settings.GM_Test("opengl") || GM_Old_Graphics()) {
             String card = "this graphics card or driver does not support OpenGL 3.3, so the game runs its older shader mode and the effects stay off";
             GM_Shaders.GM_Fail("older OpenGL", new IllegalStateException(card));
             GM_Fail("older OpenGL", new IllegalStateException(card));
@@ -65,7 +65,7 @@ public final class GM_Environment {
         GM_Layers_Apply();
     }
 
-    private static boolean GM_Old_OpenGL() {
+    private static boolean GM_Old_Graphics() {
         try {
             return Core.getInstance().getUseOpenGL21();
         } catch (Throwable t) {
@@ -102,7 +102,9 @@ public final class GM_Environment {
     public static void GM_World_Reset() {
         GM_Missing = false;
         GM_Settings_Tick(true);
+        GM_Layers_Apply();
         GM_Shore_Pending = false;
+        GM_Field.GM_Invalidate();
         GM_Shaders.GM_World_Reset();
     }
 
@@ -319,7 +321,7 @@ public final class GM_Environment {
         }
     }
 
-    public static void GM_Water_Geometry(boolean shore) {
+    public static void GM_Geometry_Start(boolean shore) {
         GM_Timing.GM_Water(true);
         if (GM_Failed) {
             return;
@@ -331,16 +333,13 @@ public final class GM_Environment {
         }
     }
 
-    public static void GM_Water_Geometry_Done() {
+    public static void GM_Geometry_End() {
         GM_Timing.GM_Water(false);
     }
 
     public static void GM_Screen_Check() {
         GM_Settings_Tick(false);
         GM_Shore_Refresh();
-        if (GM_Shaders.GM_Off()) {
-            return;
-        }
         try {
             GM_Shaders.GM_Check();
         } catch (Throwable t) {
@@ -365,12 +364,12 @@ public final class GM_Environment {
         GM_Timing.GM_Queue_End();
     }
 
-    public static void GM_Screen_Mark(Object self, Object draw, int player) {
+    public static void GM_Screen_Mark(Object self, Object draw) {
         if (GM_Shaders.GM_Off()) {
             return;
         }
         try {
-            GM_Shaders.GM_Mark(self, draw, player);
+            GM_Shaders.GM_Mark(self, draw);
         } catch (Throwable t) {
             GM_Shaders.GM_Fail("frame mark failed", t);
         }

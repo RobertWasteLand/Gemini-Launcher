@@ -29,6 +29,8 @@ final class GM_Shaders {
     static final String GM_Name = "GM_Environment/GM_Shaders_Screen";
     static final String GM_Check_File = "media/shaders/GM_Environment/GM_Shaders_Screen.frag";
     static final int GM_Ring_Size = 8;
+    static final int GM_Seq_Wrap = 1 << 20;
+    static final float GM_Fog_Least = 0.001f;
     static final int GM_Players = 4;
     static final int GM_Var_Seq = 20;
     static final float GM_Delta = 0.023093667f / 16.0f;
@@ -51,13 +53,10 @@ final class GM_Shaders {
     static final int GM_Unit_Depth = 1;
     static final int GM_Unit_Field = 4;
     static final int GM_Unit_Bank = 5;
-    static final int GM_Unit_FogTex = 6;
+    static final int GM_Unit_Fog = 6;
     static final int GM_Fx_Slots = 10;
     static final int GM_Fx_Fog = 0;
     static final int GM_Fx_Wake = 2;
-    private static final int GL_TEXTURE0 = 0x84C0;
-    private static final int GL_TEXTURE_2D = 0x0DE1;
-    private static final int GL_ACTIVE_TEXTURE = 0x84E0;
 
     static final class GM_Frame {
         int seq;
@@ -107,7 +106,7 @@ final class GM_Shaders {
         int field = -1;
         int bank = -1;
         int indoors = -1;
-        int fogTex = -1;
+        int fogMap = -1;
         int view = -1;
         int tex = -1;
         int ref = -1;
@@ -122,6 +121,12 @@ final class GM_Shaders {
         int fogTime = -1;
         int movers = -1;
         int moverCount = -1;
+        int sun = -1;
+        int sunColour = -1;
+        int fogColour = -1;
+        int effects = -1;
+        int bypass = -1;
+        int debug = -1;
 
         void GM_Find(int id) {
             program = id;
@@ -129,21 +134,27 @@ final class GM_Shaders {
             field = GL20.glGetUniformLocation(id, "GM_Field");
             bank = GL20.glGetUniformLocation(id, "GM_Bank");
             indoors = GL20.glGetUniformLocation(id, "GM_Indoors");
-            fogTex = GL20.glGetUniformLocation(id, "GM_FogTex");
+            fogMap = GL20.glGetUniformLocation(id, "GM_Fog_Map");
             view = GL20.glGetUniformLocation(id, "GM_View");
             tex = GL20.glGetUniformLocation(id, "GM_Tex");
             ref = GL20.glGetUniformLocation(id, "GM_Ref");
-            rect = GL20.glGetUniformLocation(id, "GM_FieldRect");
-            on = GL20.glGetUniformLocation(id, "GM_FieldOn");
-            fogRect = GL20.glGetUniformLocation(id, "GM_FogRect");
+            rect = GL20.glGetUniformLocation(id, "GM_Field_Rect");
+            on = GL20.glGetUniformLocation(id, "GM_Field_On");
+            fogRect = GL20.glGetUniformLocation(id, "GM_Fog_Rect");
             fog = GL20.glGetUniformLocation(id, "GM_Fog");
             wind = GL20.glGetUniformLocation(id, "GM_Wind");
             time = GL20.glGetUniformLocation(id, "GM_Time");
             player = GL20.glGetUniformLocation(id, "GM_Player");
             wake = GL20.glGetUniformLocation(id, "GM_Wake");
-            fogTime = GL20.glGetUniformLocation(id, "GM_FogTime");
+            fogTime = GL20.glGetUniformLocation(id, "GM_Fog_Time");
             movers = GL20.glGetUniformLocation(id, "GM_Movers");
-            moverCount = GL20.glGetUniformLocation(id, "GM_MoverCount");
+            moverCount = GL20.glGetUniformLocation(id, "GM_Mover_Count");
+            sun = GL20.glGetUniformLocation(id, "GM_Sun");
+            sunColour = GL20.glGetUniformLocation(id, "GM_Sun_Colour");
+            fogColour = GL20.glGetUniformLocation(id, "GM_Fog_Colour");
+            effects = GL20.glGetUniformLocation(id, "GM_Effects");
+            bypass = GL20.glGetUniformLocation(id, "GM_Bypass");
+            debug = GL20.glGetUniformLocation(id, "GM_Debug");
         }
     }
 
@@ -157,7 +168,6 @@ final class GM_Shaders {
 
     private static volatile boolean GM_Failed;
     private static volatile boolean GM_Missing;
-    private static volatile boolean GM_Installing;
     static volatile Object GM_Screen;
     private static Object GM_Vanilla;
     private static int GM_Seq;
@@ -180,12 +190,6 @@ final class GM_Shaders {
     private static double GM_Drift_X;
     private static double GM_Drift_Y;
     private static final GM_Locs GM_Screen_Locs = new GM_Locs();
-    private static int GM_Loc_Sun = -1;
-    private static int GM_Loc_SunCol = -1;
-    private static int GM_Loc_FogCol = -1;
-    private static int GM_Loc_Fx = -1;
-    private static int GM_Loc_Bypass = -1;
-    private static int GM_Loc_Debug = -1;
 
     private GM_Shaders() {
     }
@@ -204,7 +208,11 @@ final class GM_Shaders {
         }
         GM_Failed = true;
         System.out.println("[GL_Java] GM_Environment shaders off: " + what + " (" + t + ")");
-        if (GM_Vanilla != null && SceneShaderStore.weatherShader == GM_Screen) {
+        GM_Restore();
+    }
+
+    private static void GM_Restore() {
+        if (GM_Screen != null && GM_Vanilla != null && SceneShaderStore.weatherShader == GM_Screen) {
             SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Vanilla;
         }
     }
@@ -219,7 +227,11 @@ final class GM_Shaders {
     }
 
     static void GM_Check() {
-        if (GM_Failed || GM_Missing || GM_Installing) {
+        if (GM_Failed) {
+            GM_Restore();
+            return;
+        }
+        if (GM_Missing) {
             return;
         }
         zombie.core.opengl.Shader current = SceneShaderStore.weatherShader;
@@ -252,7 +264,6 @@ final class GM_Shaders {
             return;
         }
         GM_Vanilla = current;
-        GM_Installing = true;
         RenderThread.invokeOnRenderContext(GM_Shaders::GM_Install);
     }
 
@@ -284,9 +295,9 @@ final class GM_Shaders {
             int fx = -1;
             try {
                 shader.Start();
-                int program = GL11.glGetInteger(0x8B8D);
+                int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
                 if (program != 0) {
-                    fx = GL20.glGetUniformLocation(program, "GM_Fx");
+                    fx = GL20.glGetUniformLocation(program, "GM_Effects");
                 }
                 shader.End();
                 passes = GM_Pass.GM_Create();
@@ -300,7 +311,7 @@ final class GM_Shaders {
                 return;
             }
             if (!passes) {
-                GM_Fail("render passes did not compile, keeping the game's screen pass", new IllegalStateException(GM_Name));
+                GM_Fail("the fog pass did not compile, keeping the game's screen pass", new IllegalStateException(GM_Name));
                 return;
             }
             if (fx < 0) {
@@ -314,8 +325,6 @@ final class GM_Shaders {
             System.out.println("[GL_Java] GM_Environment shaders on");
         } catch (Throwable t) {
             GM_Fail("screen shader install failed on the render thread", t);
-        } finally {
-            GM_Installing = false;
         }
     }
 
@@ -346,7 +355,7 @@ final class GM_Shaders {
             GM_Drift_Y = 0.0;
             GM_Pass.GM_Fog_Reset();
         }
-        GM_Seq++;
+        GM_Seq = GM_Seq % GM_Seq_Wrap + 1;
         int slot = GM_Seq % GM_Ring_Size;
         int players = Math.max(1, Math.min(GM_Players, IsoPlayer.numPlayers));
         GM_Settings settings = GM_Settings.GM_Get();
@@ -367,6 +376,11 @@ final class GM_Shaders {
             frame.fx[GM_Fx_Fog] = settings.GM_Value(GM_Features.GM_Fog, 1);
             frame.fx[GM_Fx_Wake] = settings.GM_Value(GM_Features.GM_Fog_Wake, 1);
             GM_Frame_Fill(frame, p, dt, climate);
+        }
+        GM_Frame lead = GM_Ring[slot][0];
+        if (lead.debug == 0 && (lead.bypass || lead.fx[GM_Fx_Fog] < 0.5f || lead.fogAmount <= GM_Fog_Least)) {
+            GM_Pass.GM_Fog_Reset();
+            return;
         }
         GM_Pass pass = GM_Passes[slot];
         if (pass == null) {
@@ -418,7 +432,7 @@ final class GM_Shaders {
 
     private static void GM_Movers_Fill(GM_Frame frame, int p, IsoPlayer player, float camX, float camY, float dt) {
         frame.moverCount = 0;
-        if (p != 0 || frame.fx[GM_Fx_Wake] < 0.5f || frame.fogAmount <= 0.001f) {
+        if (p != 0 || frame.fx[GM_Fx_Wake] < 0.5f || frame.fogAmount <= GM_Fog_Least) {
             if (GM_Mover_Seen > 0) {
                 GM_Movers_Keep(0);
             }
@@ -578,7 +592,7 @@ final class GM_Shaders {
         frame.playerVY = motion.vy;
     }
 
-    static void GM_Mark(Object self, Object draw, int player) {
+    static void GM_Mark(Object self, Object draw) {
         if (self != GM_Screen || !(draw instanceof TextureDraw)) {
             return;
         }
@@ -615,33 +629,27 @@ final class GM_Shaders {
         if (frame == null) {
             return;
         }
-        int program = GL11.glGetInteger(0x8B8D);
+        int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         if (program == 0) {
             return;
         }
         GM_Locs locs = GM_Screen_Locs;
         if (program != locs.program) {
             locs.GM_Find(program);
-            GM_Loc_Sun = GL20.glGetUniformLocation(program, "GM_Sun");
-            GM_Loc_SunCol = GL20.glGetUniformLocation(program, "GM_SunCol");
-            GM_Loc_FogCol = GL20.glGetUniformLocation(program, "GM_FogCol");
-            GM_Loc_Fx = GL20.glGetUniformLocation(program, "GM_Fx");
-            GM_Loc_Bypass = GL20.glGetUniformLocation(program, "GM_Bypass");
-            GM_Loc_Debug = GL20.glGetUniformLocation(program, "GM_Debug");
         }
         if (locs.view < 0) {
             return;
         }
-        int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
+        int unit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         GM_Field.GM_Data field;
         try {
-            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_Depth);
-            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Depth_Texture());
+            GL13.glActiveTexture(GL13.GL_TEXTURE0 + GM_Unit_Depth);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, GM_Pass.GM_Depth_Texture());
             if (GM_Settings.GM_Test("screen")) {
                 throw new IllegalStateException("test failure: screen");
             }
-            GL13.glActiveTexture(GL_TEXTURE0 + GM_Unit_FogTex);
-            GL11.glBindTexture(GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
+            GL13.glActiveTexture(GL13.GL_TEXTURE0 + GM_Unit_Fog);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, GM_Pass.GM_Fog_Texture());
             field = GM_Field.GM_Upload(GM_Unit_Field, GM_Unit_Bank);
         } finally {
             Texture.lastTextureID = -1;
@@ -654,14 +662,14 @@ final class GM_Shaders {
             GL20.glUniform1i(locs.bank, GM_Unit_Bank);
             GL20.glUniform1f(locs.indoors, frame.indoors);
         }
-        GL20.glUniform1i(locs.fogTex, GM_Unit_FogTex);
+        GL20.glUniform1i(locs.fogMap, GM_Unit_Fog);
         GM_Uniforms(frame, field, locs);
-        GL20.glUniform4f(GM_Loc_Sun, 0.0f, 0.0f, frame.sunAmount, 0.0f);
-        GL20.glUniform3fv(GM_Loc_SunCol, frame.sunColour);
-        GL20.glUniform3fv(GM_Loc_FogCol, frame.fogColour);
-        GL20.glUniform1fv(GM_Loc_Fx, frame.fx);
-        GL20.glUniform1f(GM_Loc_Bypass, frame.bypass ? 1.0f : 0.0f);
-        GL20.glUniform1f(GM_Loc_Debug, frame.debug);
+        GL20.glUniform4f(locs.sun, 0.0f, 0.0f, frame.sunAmount, 0.0f);
+        GL20.glUniform3fv(locs.sunColour, frame.sunColour);
+        GL20.glUniform3fv(locs.fogColour, frame.fogColour);
+        GL20.glUniform1fv(locs.effects, frame.fx);
+        GL20.glUniform1f(locs.bypass, frame.bypass ? 1.0f : 0.0f);
+        GL20.glUniform1f(locs.debug, frame.debug);
     }
 
     static void GM_Uniforms(GM_Frame frame, GM_Field.GM_Data field, GM_Locs locs) {

@@ -6,6 +6,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import zombie.characters.IsoPlayer;
@@ -23,24 +24,10 @@ final class GM_Field {
     static final int GM_Fetch_Radius = 6;
     static final float GM_Range = 8.0f;
     static final int GM_Rebuild_Ticks = 120;
-    static final int GM_Rows_Per_Tick = 10;
+    static final int GM_Slice_Rows = 10;
     static final float GM_Rebuild_Move = 24.0f;
     static final int GM_Unit = 3;
     static final int GM_Unit_Bank = 4;
-
-    private static final int GL_TEXTURE_2D = 0x0DE1;
-    private static final int GL_RGBA = 0x1908;
-    private static final int GL_RGBA8 = 0x8058;
-    private static final int GL_UNSIGNED_BYTE = 0x1401;
-    private static final int GL_TEXTURE_MIN_FILTER = 0x2801;
-    private static final int GL_TEXTURE_MAG_FILTER = 0x2800;
-    private static final int GL_LINEAR = 0x2601;
-    private static final int GL_TEXTURE_WRAP_S = 0x2802;
-    private static final int GL_TEXTURE_WRAP_T = 0x2803;
-    private static final int GL_CLAMP_TO_EDGE = 0x812F;
-    private static final int GL_TEXTURE0 = 0x84C0;
-    private static final int GL_ACTIVE_TEXTURE = 0x84E0;
-    private static final int GL_CURRENT_PROGRAM = 0x8B8D;
 
     static final class GM_Data {
         final int x0;
@@ -67,7 +54,7 @@ final class GM_Field {
     private static final float[] GM_Scratch = new float[GM_Size * GM_Size];
     private static final float[] GM_Fetch = new float[GM_Size * GM_Size];
     private static final float[] GM_Land = new float[GM_Size * GM_Size];
-    private static final IsoGridSquare[] GM_Squares = new IsoGridSquare[GM_Rows_Per_Tick * GM_Size];
+    private static final IsoGridSquare[] GM_Squares = new IsoGridSquare[GM_Slice_Rows * GM_Size];
     private static final int GM_Water = -1;
     private static final int GM_Unknown = -2;
     private static final int GM_Indoor = 0x1000000;
@@ -161,7 +148,7 @@ final class GM_Field {
     private static void GM_Slice(IsoCell cell) {
         int s = GM_Size;
         int first = GM_Row;
-        int last = Math.min(s, first + GM_Rows_Per_Tick);
+        int last = Math.min(s, first + GM_Slice_Rows);
         int x0 = GM_Gather_X0;
         int y0 = GM_Gather_Y0;
         int[] colour = GM_Colour;
@@ -431,7 +418,6 @@ final class GM_Field {
                 pixels.put((byte) Math.round(dist * 255.0f));
                 pixels.put((byte) Math.round(fetch * 255.0f));
                 float near = 0.0f;
-                int known = 0;
                 int outdoor = 0;
                 int cornerN = 0;
                 for (int dj = -1; dj <= 0; dj++) {
@@ -445,9 +431,6 @@ final class GM_Field {
                             continue;
                         }
                         near += Math.max(0.0f, 1.0f - Math.min(land[tj * s + ti], GM_Near_Range) / GM_Near_Range);
-                        if (colour[tj * s + ti] != GM_Unknown) {
-                            known++;
-                        }
                         if (colour[tj * s + ti] < 0 || (colour[tj * s + ti] & GM_Indoor) == 0) {
                             outdoor++;
                         }
@@ -455,7 +438,7 @@ final class GM_Field {
                     }
                 }
                 pixels.put((byte) Math.round((cornerN > 0 ? near / cornerN : 0.0f) * 255.0f));
-                pixels.put((byte) Math.round((cornerN > 0 ? known / (float) cornerN : 0.0f) * 255.0f));
+                pixels.put((byte) 255);
                 float red = 0.0f;
                 float green = 0.0f;
                 float blue = 0.0f;
@@ -520,7 +503,7 @@ final class GM_Field {
     }
 
     static void GM_Bind(float toon) {
-        int program = GL11.glGetInteger(GL_CURRENT_PROGRAM);
+        int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         if (program == 0) {
             return;
         }
@@ -528,11 +511,11 @@ final class GM_Field {
             GM_Program = program;
             GM_Loc_Field = GL20.glGetUniformLocation(program, "GM_Field");
             GM_Loc_Bank = GL20.glGetUniformLocation(program, "GM_Bank");
-            GM_Loc_Rect = GL20.glGetUniformLocation(program, "GM_FieldRect");
-            GM_Loc_On = GL20.glGetUniformLocation(program, "GM_FieldOn");
+            GM_Loc_Rect = GL20.glGetUniformLocation(program, "GM_Field_Rect");
+            GM_Loc_On = GL20.glGetUniformLocation(program, "GM_Field_On");
             GM_Loc_Toon = GL20.glGetUniformLocation(program, "GM_Toon");
-            GM_Loc_Tile = GL20.glGetUniformLocation(program, "GM_TileScale");
-            GM_Loc_Quad = GL20.glGetUniformLocation(program, "GM_ShoreQuad");
+            GM_Loc_Tile = GL20.glGetUniformLocation(program, "GM_Tile_Scale");
+            GM_Loc_Quad = GL20.glGetUniformLocation(program, "GM_Shore_Quad");
         }
         if (GM_Loc_On < 0) {
             return;
@@ -558,20 +541,20 @@ final class GM_Field {
 
     static GM_Data GM_Upload(int unitField, int unitBank) {
         GM_Data pending = GM_Pending.getAndSet(null);
-        int unit = GL11.glGetInteger(GL_ACTIVE_TEXTURE);
+        int unit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         try {
-            GL13.glActiveTexture(GL_TEXTURE0 + unitField);
+            GL13.glActiveTexture(GL13.GL_TEXTURE0 + unitField);
             GM_Texture = GM_Texture_Bind(GM_Texture);
             if (GM_Settings.GM_Test("upload")) {
                 throw new IllegalStateException("test failure: upload");
             }
             if (pending != null) {
-                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.pixels);
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, GM_Size, GM_Size, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pending.pixels);
             }
-            GL13.glActiveTexture(GL_TEXTURE0 + unitBank);
+            GL13.glActiveTexture(GL13.GL_TEXTURE0 + unitBank);
             GM_Texture_Bank = GM_Texture_Bind(GM_Texture_Bank);
             if (pending != null) {
-                GL11.glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, GM_Size, GM_Size, 0, GL_RGBA, GL_UNSIGNED_BYTE, pending.bank);
+                GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, GM_Size, GM_Size, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, pending.bank);
                 GM_Current = pending;
             }
         } finally {
@@ -585,7 +568,7 @@ final class GM_Field {
         if (GM_Loc_Quad < 0 || GM_Loc_On < 0) {
             return;
         }
-        if (GL11.glGetInteger(GL_CURRENT_PROGRAM) != GM_Program) {
+        if (GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM) != GM_Program) {
             return;
         }
         GL20.glUniform1f(GM_Loc_Quad, shore ? 1.0f : -1.0f);
@@ -593,15 +576,15 @@ final class GM_Field {
 
     private static int GM_Texture_Bind(int texture) {
         if (texture != 0) {
-            GL11.glBindTexture(GL_TEXTURE_2D, texture);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
             return texture;
         }
         int created = GL11.glGenTextures();
-        GL11.glBindTexture(GL_TEXTURE_2D, created);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, created);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
         return created;
     }
 }

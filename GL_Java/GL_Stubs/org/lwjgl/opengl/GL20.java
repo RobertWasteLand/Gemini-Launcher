@@ -1,6 +1,8 @@
 package org.lwjgl.opengl;
 
 public final class GL20 {
+    public static final int GL_CURRENT_PROGRAM = 35725;
+
     public static int glGetUniformLocation(int program, CharSequence name) {
         return -1;
     }

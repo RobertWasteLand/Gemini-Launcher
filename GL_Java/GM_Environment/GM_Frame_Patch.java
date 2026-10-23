@@ -8,7 +8,7 @@ public final class GM_Frame_Patch {
     }
 
     @Patch.OnExit
-    public static void GM_Exit(@Patch.This Object self, @Patch.Argument(0) Object draw, @Patch.Argument(1) int player) {
-        GM_Environment.GM_Screen_Mark(self, draw, player);
+    public static void GM_Exit(@Patch.This Object self, @Patch.Argument(0) Object draw) {
+        GM_Environment.GM_Screen_Mark(self, draw);
     }
 }
