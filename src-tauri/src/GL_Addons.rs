@@ -4,6 +4,7 @@ use crate::GL_Config::GL_Settings;
 use crate::GL_Options::{GL_Value_Off, GL_Value_On};
 
 pub const GL_Addon_Folder: &str = "GL_Java";
+pub const GL_Shaders_Folder: &str = "media/shaders";
 
 pub struct GL_Addon {
     pub id: &'static str,
@@ -64,6 +65,10 @@ pub fn GL_Addon_Package(addon: &GL_Addon) -> String {
 
 pub fn GL_Addon_Jar(addon: &GL_Addon) -> PathBuf {
     PathBuf::from(GL_Addon_Folder).join(format!("{}.jar", addon.id))
+}
+
+pub fn GL_Addon_Shaders(addon: &GL_Addon) -> PathBuf {
+    PathBuf::from(GL_Shaders_Folder).join(addon.id)
 }
 
 pub fn GL_Addon_Marker(addon: &GL_Addon) -> String {

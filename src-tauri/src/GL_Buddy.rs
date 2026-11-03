@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::GL_Addons::{GL_Addon, GL_Addon_Folder, GL_Addon_Jar, GL_Addon_Package};
+use crate::GL_Addons::{GL_Addon, GL_Addon_Folder, GL_Addon_Jar, GL_Addon_Package, GL_Addon_Shaders};
 
 pub struct GL_Pinned {
     pub name: &'static str,
@@ -177,6 +177,27 @@ pub fn GL_Buddy_Prepare(
         }
         record.insert(GL_Key(&target), hash);
     }
+    for addon in addons {
+        let folder = GL_Addon_Shaders(addon);
+        let Ok(entries) = fs::read_dir(bundle.join(&folder)) else {
+            continue;
+        };
+        for entry in entries {
+            let source = entry.map_err(|_| GL_Reason_Damaged.to_owned())?.path();
+            if !source.is_file() {
+                continue;
+            }
+            let Some(name) = source.file_name() else {
+                continue;
+            };
+            let hash = GL_Hash_File(&source).map_err(|_| GL_Reason_Damaged.to_owned())?;
+            let target = game.join(&folder).join(name);
+            if GL_Hash_File(&target).ok().as_deref() != Some(hash.as_str()) {
+                places.push((source, target.clone()));
+            }
+            record.insert(GL_Key(&target), hash);
+        }
+    }
 
     save(&record)?;
     *installed = record;
@@ -191,6 +212,11 @@ pub fn GL_Buddy_Prepare(
     Ok(arg)
 }
 
+fn GL_Folder_Ours(folder: &Path) -> bool {
+    let named = |path: Option<&Path>, name: &str| path.and_then(Path::file_name).is_some_and(|n| n.eq_ignore_ascii_case(name));
+    named(Some(folder), GL_Addon_Folder) || (named(folder.parent(), "shaders") && named(folder.parent().and_then(Path::parent), "media"))
+}
+
 pub fn GL_Buddy_Clean(installed: &mut BTreeMap<String, String>) {
     let mut folders = BTreeSet::new();
     for (key, hash) in std::mem::take(installed) {
@@ -198,8 +224,7 @@ pub fn GL_Buddy_Clean(installed: &mut BTreeMap<String, String>) {
         let Some(parent) = path.parent() else {
             continue;
         };
-        let in_folder = parent.file_name().is_some_and(|n| n.eq_ignore_ascii_case(GL_Addon_Folder));
-        if in_folder {
+        if GL_Folder_Ours(parent) {
             folders.insert(parent.to_path_buf());
         } else if GL_Buddy_Configured(parent) {
             continue;

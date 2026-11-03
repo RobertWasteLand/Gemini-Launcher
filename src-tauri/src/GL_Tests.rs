@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::GL_Addons::{GL_Addon, GL_Addon_Enabled, GL_Addon_Find, GL_Addon_Jar, GL_Addons, GL_Addons_Active, GL_Addons_Sorted};
+use crate::GL_Addons::{GL_Addon, GL_Addon_Enabled, GL_Addon_Find, GL_Addon_Jar, GL_Addon_Shaders, GL_Addons, GL_Addons_Active, GL_Addons_Sorted};
 use crate::GL_Buddy::{
     GL_Buddy_Arg, GL_Buddy_Clean, GL_Buddy_Files, GL_Buddy_Prepare, GL_Hash_File, GL_Key, GL_Reason_Configured, GL_Reason_Foreign,
     GL_Reason_Long,
@@ -176,6 +176,9 @@ fn GL_Test_Bundle() -> PathBuf {
 fn GL_Test_Core() -> &'static GL_Addon {
     GL_Addon_Find("GL_Core").unwrap()
 }
+fn GL_Test_Environment() -> &'static GL_Addon {
+    GL_Addon_Find("GM_Environment").unwrap()
+}
 
 #[test]
 fn GL_Test_Identifier() {
@@ -205,6 +208,44 @@ fn GL_Test_Bundle_Files() {
     for addon in GL_Addons {
         assert!(bundle.join(GL_Addon_Jar(addon)).is_file(), "{}", addon.id);
     }
+    let shaders = bundle.join(GL_Addon_Shaders(GL_Test_Environment()));
+    assert!(shaders.join("GM_Water_High.frag").is_file());
+    assert!(shaders.join("GM_Shaders_Screen.frag").is_file());
+    assert!(!bundle.join(GL_Addon_Shaders(GL_Test_Core())).exists());
+}
+
+#[test]
+fn GL_Test_Buddy_Shaders() {
+    let bundle = GL_Test_Bundle();
+    let game = GL_Test_Dir("Shaders");
+    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    let core = GL_Test_Core();
+    let env = GL_Test_Environment();
+    let mut installed = BTreeMap::new();
+
+    GL_Buddy_Prepare(&bundle, &game, &[core, env], None, &mut installed, |_| Ok(())).unwrap();
+    let folder = game.join(GL_Addon_Shaders(env));
+    let count = fs::read_dir(bundle.join(GL_Addon_Shaders(env))).unwrap().count();
+    assert!(count > 0);
+    assert_eq!(fs::read_dir(&folder).unwrap().count(), count);
+    assert_eq!(installed.len(), GL_Buddy_Files.len() + 2 + count);
+    let water = folder.join("GM_Water_High.frag");
+    let hash = GL_Hash_File(&water).unwrap();
+    assert_eq!(installed.get(&GL_Key(&water)), Some(&hash));
+
+    let before = installed.clone();
+    GL_Buddy_Prepare(&bundle, &game, &[core, env], None, &mut installed, |_| Ok(())).unwrap();
+    assert_eq!(installed, before);
+
+    fs::write(&water, b"older").unwrap();
+    GL_Buddy_Prepare(&bundle, &game, &[core, env], None, &mut installed, |_| Ok(())).unwrap();
+    assert_eq!(GL_Hash_File(&water).unwrap(), hash);
+
+    GL_Buddy_Clean(&mut installed);
+    assert!(installed.is_empty());
+    assert!(!folder.exists());
+    assert!(!game.join("GL_Java").exists());
+    let _ = fs::remove_dir_all(&game);
 }
 
 #[test]

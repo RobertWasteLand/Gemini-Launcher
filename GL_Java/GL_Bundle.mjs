@@ -9,6 +9,8 @@ const GL_Source = join(GL_Root, "GL_Java");
 const GL_Bundle = join(GL_Root, "src-tauri", "GL_Bundle");
 const GL_Addons = join(GL_Bundle, "GL_Java");
 const GL_Work = join(GL_Root, "src-tauri", "target", "GL_Java");
+const GL_Glsl = join(GL_Source, "GM_Environment", "GM_Glsl");
+const GL_Shaders = join(GL_Bundle, "media", "shaders", "GM_Environment");
 const GL_Stubs = "GL_Stubs";
 const GL_Release = "17";
 const GL_License = "ZombieBuddy_LICENSE.txt";
@@ -114,6 +116,19 @@ function GL_Addon_Build(name, stubs) {
   console.log(`${name}.jar: built (${GL_Hash_Get(readFileSync(jar))})`);
 }
 
+function GL_Shaders_Copy() {
+  rmSync(GL_Shaders, { recursive: true, force: true });
+  mkdirSync(GL_Shaders, { recursive: true });
+  let count = 0;
+  for (const entry of readdirSync(GL_Glsl, { withFileTypes: true })) {
+    if (entry.isFile()) {
+      copyFileSync(join(GL_Glsl, entry.name), join(GL_Shaders, entry.name));
+      count += 1;
+    }
+  }
+  console.log(`shaders: ${count} files bundled`);
+}
+
 mkdirSync(GL_Bundle, { recursive: true });
 for (const file of GL_Pinned) {
   await GL_Pinned_Fetch(file);
@@ -129,3 +144,4 @@ const GL_Names = readdirSync(GL_Source, { withFileTypes: true })
 for (const name of GL_Names) {
   GL_Addon_Build(name, GL_Stub_Classes);
 }
+GL_Shaders_Copy();

@@ -4,7 +4,6 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import zombie.GameTime;
-import zombie.ZomboidFileSystem;
 import zombie.characters.IsoPlayer;
 import zombie.core.Color;
 import zombie.core.Core;
@@ -27,7 +26,6 @@ import zombie.network.GameClient;
 
 final class GM_Shaders {
     static final String GM_Name = "GM_Environment/GM_Shaders_Screen";
-    static final String GM_Check_File = "media/shaders/GM_Environment/GM_Shaders_Screen.frag";
     static final int GM_Ring_Size = 8;
     static final int GM_Seq_Wrap = 1 << 20;
     static final float GM_Fog_Least = 0.001f;
@@ -167,7 +165,6 @@ final class GM_Shaders {
     }
 
     private static volatile boolean GM_Failed;
-    private static volatile boolean GM_Missing;
     static volatile Object GM_Screen;
     private static Object GM_Vanilla;
     private static int GM_Seq;
@@ -195,7 +192,7 @@ final class GM_Shaders {
     }
 
     static boolean GM_Off() {
-        return GM_Failed || GM_Missing;
+        return GM_Failed;
     }
 
     static boolean GM_Active() {
@@ -218,7 +215,6 @@ final class GM_Shaders {
     }
 
     static void GM_World_Reset() {
-        GM_Missing = false;
         for (int i = 0; i < GM_Players; i++) {
             GM_Motions[i] = null;
         }
@@ -229,9 +225,6 @@ final class GM_Shaders {
     static void GM_Check() {
         if (GM_Failed) {
             GM_Restore();
-            return;
-        }
-        if (GM_Missing) {
             return;
         }
         zombie.core.opengl.Shader current = SceneShaderStore.weatherShader;
@@ -256,11 +249,6 @@ final class GM_Shaders {
             } else if (current == GM_Screen && GM_Vanilla != null) {
                 SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Vanilla;
             }
-            return;
-        }
-        if (!ZomboidFileSystem.instance.isKnownFile(GM_Check_File)) {
-            GM_Missing = true;
-            System.out.println("[GL_Java] GM_Environment shaders off for this world: the GM_Environment mod is not enabled, so its screen shaders are not loaded");
             return;
         }
         GM_Vanilla = current;

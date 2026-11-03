@@ -7,7 +7,6 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
 
-import zombie.ZomboidFileSystem;
 import zombie.core.Core;
 import zombie.core.PerformanceSettings;
 import zombie.core.opengl.Shader;
@@ -29,14 +28,12 @@ import zombie.iso.sprite.IsoSprite;
 public final class GM_Environment {
     static final String GM_Shader_High = "GM_Environment/GM_Water_High";
     static final String GM_Shader_Medium = "GM_Environment/GM_Water";
-    static final String GM_Shader_Check = "media/shaders/GM_Environment/GM_Water.frag";
     static final float GM_Toon_Default = 0.55f;
     static final int GM_Plant_Reach = 6;
 
     public static volatile boolean GM_Solid_Bank;
     public static volatile boolean GM_Water_Plants;
     private static volatile boolean GM_Failed;
-    private static volatile boolean GM_Missing;
     private static volatile boolean GM_Stickers_Failed;
     private static boolean GM_Shown;
     private static Object GM_Effect;
@@ -99,7 +96,6 @@ public final class GM_Environment {
     }
 
     public static void GM_World_Reset() {
-        GM_Missing = false;
         GM_Settings_Tick(true);
         GM_Layers_Apply();
         GM_Shore_Pending = false;
@@ -108,7 +104,7 @@ public final class GM_Environment {
     }
 
     private static int GM_Shore_State(GM_Settings settings) {
-        if (GM_Failed || GM_Missing || !settings.GM_On(GM_Features.GM_Water)) {
+        if (GM_Failed || !settings.GM_On(GM_Features.GM_Water)) {
             return 0;
         }
         boolean solid = settings.GM_On(GM_Features.GM_Water_Shore) && !GM_Settings.GM_Test("shore_fade");
@@ -228,7 +224,7 @@ public final class GM_Environment {
         if (!(self instanceof IsoWater)) {
             return;
         }
-        if (GM_Failed || GM_Missing) {
+        if (GM_Failed) {
             GM_Water_Restore((IsoWater) self);
             return;
         }
@@ -256,12 +252,6 @@ public final class GM_Environment {
                 if (wanted != null && water.effect != wanted) {
                     water.effect = (Shader) wanted;
                 }
-                return;
-            }
-            if (!ZomboidFileSystem.instance.isKnownFile(GM_Shader_Check)) {
-                GM_Missing = true;
-                GM_Layers_Apply();
-                System.out.println("[GL_Java] GM_Environment off for this world: the GM_Environment mod is not enabled, so its water shaders are not loaded");
                 return;
             }
             RenderThread.invokeOnRenderContext(() -> GM_Water_Install(water, quality, on));
