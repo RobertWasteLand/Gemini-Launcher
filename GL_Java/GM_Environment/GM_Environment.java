@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HexFormat;
 
 import zombie.ZomboidFileSystem;
@@ -22,6 +23,7 @@ import zombie.iso.IsoWorld;
 import zombie.iso.SpriteDetails.IsoFlagType;
 import zombie.iso.WaterShader;
 import zombie.iso.fboRenderChunk.ObjectRenderLayer;
+import zombie.iso.objects.IsoThumpable;
 import zombie.iso.sprite.IsoSprite;
 
 public final class GM_Environment {
@@ -35,6 +37,7 @@ public final class GM_Environment {
     public static volatile boolean GM_Water_Plants;
     private static volatile boolean GM_Failed;
     private static volatile boolean GM_Missing;
+    private static volatile boolean GM_Stickers_Failed;
     private static boolean GM_Shown;
     private static Object GM_Effect;
     private static Object GM_Vanilla_Effect;
@@ -93,10 +96,6 @@ public final class GM_Environment {
         GM_Layers_Apply();
         System.out.println("[GL_Java] GM_Environment off: " + what + " (" + t + ")");
         GM_Shaders.GM_Fail("the water side stopped", t);
-    }
-
-    static boolean GM_Off() {
-        return GM_Failed;
     }
 
     public static void GM_World_Reset() {
@@ -160,6 +159,24 @@ public final class GM_Environment {
         return shore && !GM_Solid_Bank;
     }
 
+    public static void GM_Shore_Drawn(Object self, ArrayList<IsoGridSquare> grid, int z) {
+        if (GM_Stickers_Failed || !GM_Solid_Bank || z != 0 || grid == null || grid.isEmpty() || !PerformanceSettings.fboRenderChunk
+            || !(self instanceof IsoWater) || !((IsoWater) self).getShaderEnable()) {
+            return;
+        }
+        long start = GM_Timing.GM_Cpu_Start();
+        try {
+            if (GM_Settings.GM_Test("stickers")) {
+                throw new IllegalStateException("test failure: stickers");
+            }
+            GM_Stickers.GM_Draw(grid);
+        } catch (Throwable t) {
+            GM_Stickers_Failed = true;
+            System.out.println("[GL_Java] GM_Environment shore tiles off, the water stays on (" + t + ")");
+        }
+        GM_Timing.GM_Cpu_Shore(start);
+    }
+
     public static ObjectRenderLayer GM_Water_Layer(IsoObject object, ObjectRenderLayer layer) {
         if (!GM_Water_Plants || object == null || (layer != ObjectRenderLayer.MinusFloor && layer != ObjectRenderLayer.Vegetation)) {
             return layer;
@@ -168,7 +185,7 @@ public final class GM_Environment {
             IsoSprite sprite = object.getSprite();
             IsoGridSquare square = object.getSquare();
             if (sprite == null || square == null || square.z != 0 || sprite.solidfloor || sprite.cutN || sprite.cutW
-                || !(sprite.isBush || sprite.canBeRemoved || sprite.attachedFloor || object.getClass() == IsoObject.class)) {
+                || !(sprite.isBush || sprite.canBeRemoved || sprite.attachedFloor || object.getClass() == IsoObject.class || GM_Placed(object))) {
                 return layer;
             }
             IsoWaterGeometry water = square.getWater();
@@ -180,6 +197,14 @@ public final class GM_Environment {
             GM_Fail("water plant layer failed", t);
             return layer;
         }
+    }
+
+    private static boolean GM_Placed(IsoObject object) {
+        if (!(object instanceof IsoThumpable)) {
+            return false;
+        }
+        IsoThumpable placed = (IsoThumpable) object;
+        return !placed.isDoor() && !placed.isDoorFrame() && !placed.isStairs() && !placed.isCorner();
     }
 
     private static boolean GM_Water_Behind(IsoGridSquare square) {

@@ -28,6 +28,7 @@ final class GM_Field {
     static final float GM_Rebuild_Move = 24.0f;
     static final int GM_Unit = 3;
     static final int GM_Unit_Bank = 4;
+    static final float GM_Near_Range = 7.0f;
 
     static final class GM_Data {
         final int x0;
@@ -64,7 +65,6 @@ final class GM_Field {
     private static Thread GM_Worker;
     private static int GM_Job_X0;
     private static int GM_Job_Y0;
-    static final float GM_Near_Range = 7.0f;
     private static int GM_Ticks;
     private static int GM_Built_Tick = Integer.MIN_VALUE;
     private static float GM_Center_X;

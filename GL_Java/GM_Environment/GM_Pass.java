@@ -247,14 +247,11 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         long start = GM_Timing.GM_Cpu_Start();
         GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
         GL11.glPushClientAttrib(GL11.GL_CLIENT_ALL_ATTRIB_BITS);
-        GM_Timing.GM_Cpu_Push(start);
-        long query = GM_Timing.GM_Cpu_Start();
         int prevFbo = TextureFBO.getCurrentID();
         int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
         int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
         int prevUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, GM_Viewport);
-        GM_Timing.GM_Cpu_Query(query);
         try {
             if (width != GM_W || height != GM_H || GM_Settings.GM_Test("resize")) {
                 try {
@@ -297,10 +294,8 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
             GL11.glViewport(GM_Viewport[0], GM_Viewport[1], GM_Viewport[2], GM_Viewport[3]);
             GL20.glUseProgram(prevProgram);
             GL13.glActiveTexture(prevUnit);
-            long pop = GM_Timing.GM_Cpu_Start();
             GL11.glPopClientAttrib();
             GL11.glPopAttrib();
-            GM_Timing.GM_Cpu_Pop(pop);
             Texture.lastTextureID = -1;
             SpriteRenderer.ringBuffer.restoreBoundTextures = true;
             SpriteRenderer.ringBuffer.restoreVbos = true;
@@ -353,5 +348,4 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
         GM_Window_Y = this.frame.fogY;
         GM_Fog_Fresh = false;
     }
-
 }

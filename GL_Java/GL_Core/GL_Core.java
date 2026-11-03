@@ -27,10 +27,21 @@ public final class GL_Core {
         if (GL_Watermark_Done) {
             return;
         }
+        if (GL_Intro.GL_Watermark_Hold()) {
+            GL_Watermark_Started = false;
+            Watermark.setAlpha(0.0f);
+            return;
+        }
+        if (GL_Intro.GL_Watermark_Credited()) {
+            Watermark.setAlpha(0.0f);
+            GL_Watermark_Done = true;
+            return;
+        }
         long now = System.nanoTime();
         if (!GL_Watermark_Started) {
             GL_Watermark_Started = true;
             GL_Watermark_Start = now;
+            Watermark.setAlpha(GL_Watermark_Alpha);
             return;
         }
         long fading = now - GL_Watermark_Start - GL_Watermark_Show;

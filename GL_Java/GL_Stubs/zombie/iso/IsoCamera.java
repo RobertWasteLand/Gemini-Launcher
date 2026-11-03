@@ -7,6 +7,7 @@ public final class IsoCamera {
         public float camCharacterX;
         public float camCharacterY;
         public float camCharacterZ;
+        public int playerIndex;
     }
 
     public static float getOffX(int playerIndex) {

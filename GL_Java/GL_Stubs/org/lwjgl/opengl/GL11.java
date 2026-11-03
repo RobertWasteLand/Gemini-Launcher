@@ -3,6 +3,7 @@ package org.lwjgl.opengl;
 public final class GL11 {
     public static final int GL_ALL_ATTRIB_BITS = 1048575;
     public static final int GL_ALPHA_TEST = 3008;
+    public static final int GL_ALWAYS = 519;
     public static final int GL_BLEND = 3042;
     public static final int GL_CLIENT_ALL_ATTRIB_BITS = -1;
     public static final int GL_CULL_FACE = 2884;
@@ -10,14 +11,18 @@ public final class GL11 {
     public static final int GL_DEPTH_COMPONENT = 6402;
     public static final int GL_DEPTH_TEST = 2929;
     public static final int GL_FLOAT = 5126;
+    public static final int GL_LEQUAL = 515;
     public static final int GL_LINEAR = 9729;
     public static final int GL_NEAREST = 9728;
     public static final int GL_NONE = 0;
     public static final int GL_NO_ERROR = 0;
+    public static final int GL_ONE = 1;
+    public static final int GL_ONE_MINUS_SRC_ALPHA = 771;
     public static final int GL_OUT_OF_MEMORY = 1285;
     public static final int GL_RGBA = 6408;
     public static final int GL_RGBA8 = 32856;
     public static final int GL_SCISSOR_TEST = 3089;
+    public static final int GL_SRC_ALPHA = 770;
     public static final int GL_STENCIL_TEST = 2960;
     public static final int GL_TEXTURE_2D = 3553;
     public static final int GL_TEXTURE_BINDING_2D = 32873;

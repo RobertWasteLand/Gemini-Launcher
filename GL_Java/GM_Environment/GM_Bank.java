@@ -1,12 +1,14 @@
 package GL_Java.GM_Environment;
 
+import java.util.Arrays;
+
 final class GM_Bank {
     static final int GM_Default = 0x664A32;
     private static final int[] GM_Blends = { 0xC8B187, 0x4E5B1D, 0x5E5F22, 0x6E6328, 0x5A3E13, 0x4D3A14, 0x664A32, 0x664A32 };
     private static final int[] GM_Floors = new int[64];
 
     static {
-        java.util.Arrays.fill(GM_Floors, GM_Default);
+        Arrays.fill(GM_Floors, GM_Default);
         GM_Floors[0] = 0x4E5B1D;
         GM_Floors[1] = 0x5E5F22;
         GM_Floors[2] = 0x6E6328;

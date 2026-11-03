@@ -54,9 +54,9 @@ final class GM_Shaders {
     static final int GM_Unit_Field = 4;
     static final int GM_Unit_Bank = 5;
     static final int GM_Unit_Fog = 6;
-    static final int GM_Fx_Slots = 10;
+    static final int GM_Fx_Slots = 2;
     static final int GM_Fx_Fog = 0;
-    static final int GM_Fx_Wake = 2;
+    static final int GM_Fx_Wake = 1;
 
     static final class GM_Frame {
         int seq;

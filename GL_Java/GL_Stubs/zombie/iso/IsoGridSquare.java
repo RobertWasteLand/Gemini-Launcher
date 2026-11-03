@@ -5,6 +5,9 @@ public final class IsoGridSquare {
     public int y;
     public int z;
 
+    public static void setBlendFunc() {
+    }
+
     public IsoWaterGeometry getWater() {
         return null;
     }
@@ -18,6 +21,14 @@ public final class IsoGridSquare {
     }
 
     public IsoObject getFloor() {
+        return null;
+    }
+
+    public zombie.util.list.PZArrayList<IsoObject> getObjects() {
+        return null;
+    }
+
+    public zombie.core.textures.ColorInfo getLightInfo(int playerIndex) {
         return null;
     }
 }
