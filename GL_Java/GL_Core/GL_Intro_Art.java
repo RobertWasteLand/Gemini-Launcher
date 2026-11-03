@@ -5,18 +5,16 @@ import java.io.File;
 import fmod.javafmod;
 import zombie.core.Core;
 import zombie.core.textures.Texture;
-import zombie.gameStates.ChooseGameInfo;
 
 final class GL_Intro_Art {
-    static final String GL_Art_Mod = "GM_Main_Menu";
-    static final String GL_Art_Pictures = "media/ui/GM_Main_Menu/";
-    static final String GL_Art_Sounds = "media/sound/GM_Main_Menu/";
+    static final String GL_Art_Pictures = "media/ui/GL_Core/";
+    static final String GL_Art_Sounds = "media/sound/GL_Core/";
     static final int GL_Art_Smooth = 0;
     static final int GL_Art_Pixel = 3;
     static final long GL_Art_Sound_2D = 8L;
     static final int GL_Art_Syllables = 8;
 
-    final String common;
+    final String folder;
     final Texture warning;
     final Texture logos;
     final Texture buddy;
@@ -44,7 +42,7 @@ final class GL_Intro_Art {
     private final Texture[] all;
 
     private GL_Intro_Art(File dir) {
-        common = dir.getAbsolutePath();
+        folder = dir.getAbsolutePath();
         int crisp = GL_Art_Crisp();
         warning = GL_Art_Picture(dir, "GM_Legal_Warning", crisp);
         logos = GL_Art_Picture(dir, "GM_Company_Logos", crisp);
@@ -83,17 +81,13 @@ final class GL_Intro_Art {
     }
 
     static GL_Intro_Art GL_Art_Load() {
-        ChooseGameInfo.Mod mod = ChooseGameInfo.getModDetails(GL_Art_Mod);
-        if (mod == null || mod.getCommonDir() == null) {
-            throw new IllegalStateException("the " + GL_Art_Mod + " mod is not on this PC");
-        }
-        return new GL_Intro_Art(new File(mod.getCommonDir()));
+        return new GL_Intro_Art(new File("").getAbsoluteFile());
     }
 
     boolean GL_Art_Ready() {
         for (Texture texture : all) {
             if (texture.isFailure()) {
-                throw new IllegalStateException("a picture from the " + GL_Art_Mod + " mod did not load");
+                throw new IllegalStateException("an intro picture did not load");
             }
             if (!texture.isReady()) {
                 return false;
@@ -123,7 +117,7 @@ final class GL_Intro_Art {
     private static Texture GL_Art_Picture(File dir, String name, int flags) {
         File file = new File(dir, GL_Art_Pictures + name + ".png");
         if (!file.isFile()) {
-            throw new IllegalStateException(file.getName() + " is missing from " + dir);
+            throw new IllegalStateException(file.getName() + " is missing from " + file.getParent());
         }
         Texture texture = Texture.getSharedTexture(file.getAbsolutePath(), flags);
         if (texture == null) {
@@ -135,7 +129,7 @@ final class GL_Intro_Art {
     private static long GL_Art_Sound(File dir, String name) {
         File file = new File(dir, GL_Art_Sounds + name);
         if (!file.isFile()) {
-            throw new IllegalStateException(file.getName() + " is missing from " + dir);
+            throw new IllegalStateException(file.getName() + " is missing from " + file.getParent());
         }
         return javafmod.FMOD_System_CreateSound(file.getAbsolutePath(), GL_Art_Sound_2D);
     }

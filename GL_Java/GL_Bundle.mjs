@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,8 +9,7 @@ const GL_Source = join(GL_Root, "GL_Java");
 const GL_Bundle = join(GL_Root, "src-tauri", "GL_Bundle");
 const GL_Addons = join(GL_Bundle, "GL_Java");
 const GL_Work = join(GL_Root, "src-tauri", "target", "GL_Java");
-const GL_Glsl = join(GL_Source, "GM_Environment", "GM_Glsl");
-const GL_Shaders = join(GL_Bundle, "media", "shaders", "GM_Environment");
+const GL_Media = "media";
 const GL_Stubs = "GL_Stubs";
 const GL_Release = "17";
 const GL_License = "ZombieBuddy_LICENSE.txt";
@@ -116,17 +115,32 @@ function GL_Addon_Build(name, stubs) {
   console.log(`${name}.jar: built (${GL_Hash_Get(readFileSync(jar))})`);
 }
 
-function GL_Shaders_Copy() {
-  rmSync(GL_Shaders, { recursive: true, force: true });
-  mkdirSync(GL_Shaders, { recursive: true });
+function GL_Media_Copy(names) {
+  rmSync(join(GL_Bundle, GL_Media), { recursive: true, force: true });
   let count = 0;
-  for (const entry of readdirSync(GL_Glsl, { withFileTypes: true })) {
-    if (entry.isFile()) {
-      copyFileSync(join(GL_Glsl, entry.name), join(GL_Shaders, entry.name));
-      count += 1;
+  for (const name of names) {
+    const media = join(GL_Source, name, GL_Media);
+    if (!existsSync(media)) {
+      continue;
+    }
+    for (const kind of readdirSync(media, { withFileTypes: true })) {
+      const source = join(media, kind.name, name);
+      const inside = kind.isDirectory() ? readdirSync(join(media, kind.name)) : [];
+      if (inside.length !== 1 || inside[0] !== name || !statSync(source).isDirectory()) {
+        throw new Error(`${name}: ${GL_Media}/${kind.name} must hold one folder, named ${name}`);
+      }
+      const target = join(GL_Bundle, GL_Media, kind.name, name);
+      mkdirSync(target, { recursive: true });
+      for (const entry of readdirSync(source, { withFileTypes: true })) {
+        if (!entry.isFile()) {
+          throw new Error(`${name}: ${GL_Media}/${kind.name}/${name}/${entry.name} must be a file`);
+        }
+        copyFileSync(join(source, entry.name), join(target, entry.name));
+        count += 1;
+      }
     }
   }
-  console.log(`shaders: ${count} files bundled`);
+  console.log(`${GL_Media}: ${count} files bundled`);
 }
 
 mkdirSync(GL_Bundle, { recursive: true });
@@ -144,4 +158,4 @@ const GL_Names = readdirSync(GL_Source, { withFileTypes: true })
 for (const name of GL_Names) {
   GL_Addon_Build(name, GL_Stub_Classes);
 }
-GL_Shaders_Copy();
+GL_Media_Copy(GL_Names);

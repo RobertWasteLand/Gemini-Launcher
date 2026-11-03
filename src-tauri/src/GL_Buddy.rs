@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
-use crate::GL_Addons::{GL_Addon, GL_Addon_Folder, GL_Addon_Jar, GL_Addon_Package, GL_Addon_Shaders};
+use crate::GL_Addons::{GL_Addon, GL_Addon_Folder, GL_Addon_Jar, GL_Addon_Package, GL_Media_Folder};
 
 pub struct GL_Pinned {
     pub name: &'static str,
@@ -178,24 +178,23 @@ pub fn GL_Buddy_Prepare(
         record.insert(GL_Key(&target), hash);
     }
     for addon in addons {
-        let folder = GL_Addon_Shaders(addon);
-        let Ok(entries) = fs::read_dir(bundle.join(&folder)) else {
-            continue;
-        };
-        for entry in entries {
-            let source = entry.map_err(|_| GL_Reason_Damaged.to_owned())?.path();
-            if !source.is_file() {
-                continue;
+        for folder in GL_Media_Folders(bundle, addon) {
+            let entries = fs::read_dir(bundle.join(&folder)).map_err(|_| GL_Reason_Damaged.to_owned())?;
+            for entry in entries {
+                let source = entry.map_err(|_| GL_Reason_Damaged.to_owned())?.path();
+                if !source.is_file() {
+                    continue;
+                }
+                let Some(name) = source.file_name() else {
+                    continue;
+                };
+                let hash = GL_Hash_File(&source).map_err(|_| GL_Reason_Damaged.to_owned())?;
+                let target = game.join(&folder).join(name);
+                if GL_Hash_File(&target).ok().as_deref() != Some(hash.as_str()) {
+                    places.push((source, target.clone()));
+                }
+                record.insert(GL_Key(&target), hash);
             }
-            let Some(name) = source.file_name() else {
-                continue;
-            };
-            let hash = GL_Hash_File(&source).map_err(|_| GL_Reason_Damaged.to_owned())?;
-            let target = game.join(&folder).join(name);
-            if GL_Hash_File(&target).ok().as_deref() != Some(hash.as_str()) {
-                places.push((source, target.clone()));
-            }
-            record.insert(GL_Key(&target), hash);
         }
     }
 
@@ -212,9 +211,22 @@ pub fn GL_Buddy_Prepare(
     Ok(arg)
 }
 
+pub fn GL_Media_Folders(bundle: &Path, addon: &GL_Addon) -> Vec<PathBuf> {
+    let Ok(kinds) = fs::read_dir(bundle.join(GL_Media_Folder)) else {
+        return Vec::new();
+    };
+    let mut folders: Vec<PathBuf> = kinds
+        .filter_map(Result::ok)
+        .map(|kind| PathBuf::from(GL_Media_Folder).join(kind.file_name()).join(addon.id))
+        .filter(|folder| bundle.join(folder).is_dir())
+        .collect();
+    folders.sort();
+    folders
+}
+
 fn GL_Folder_Ours(folder: &Path) -> bool {
     let named = |path: Option<&Path>, name: &str| path.and_then(Path::file_name).is_some_and(|n| n.eq_ignore_ascii_case(name));
-    named(Some(folder), GL_Addon_Folder) || (named(folder.parent(), "shaders") && named(folder.parent().and_then(Path::parent), "media"))
+    named(Some(folder), GL_Addon_Folder) || named(folder.parent().and_then(Path::parent), GL_Media_Folder)
 }
 
 pub fn GL_Buddy_Clean(installed: &mut BTreeMap<String, String>) {

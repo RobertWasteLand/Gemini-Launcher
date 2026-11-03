@@ -202,7 +202,7 @@ public final class GL_Intro {
         }
         GL_Loaded = true;
         GL_Art = GL_Intro_Art.GL_Art_Load();
-        System.out.println("[GL_Java] GL_Core intro: files from " + GL_Art.common + (GL_Art.GL_Art_Sound_On() ? "" : ", sound off"));
+        System.out.println("[GL_Java] GL_Core intro: files from " + GL_Art.folder + (GL_Art.GL_Art_Sound_On() ? "" : ", sound off"));
     }
 
     private static boolean GL_Wait(Texture texture) throws InterruptedException {

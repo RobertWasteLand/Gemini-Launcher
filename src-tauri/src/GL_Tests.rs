@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::GL_Addons::{GL_Addon, GL_Addon_Enabled, GL_Addon_Find, GL_Addon_Jar, GL_Addon_Shaders, GL_Addons, GL_Addons_Active, GL_Addons_Sorted};
+use crate::GL_Addons::{GL_Addon, GL_Addon_Enabled, GL_Addon_Find, GL_Addon_Jar, GL_Addons, GL_Addons_Active, GL_Addons_Sorted, GL_Media_Folder};
 use crate::GL_Buddy::{
-    GL_Buddy_Arg, GL_Buddy_Clean, GL_Buddy_Files, GL_Buddy_Prepare, GL_Hash_File, GL_Key, GL_Reason_Configured, GL_Reason_Foreign,
-    GL_Reason_Long,
+    GL_Buddy_Arg, GL_Buddy_Clean, GL_Buddy_Files, GL_Buddy_Prepare, GL_Hash_File, GL_Key, GL_Media_Folders, GL_Reason_Configured,
+    GL_Reason_Foreign, GL_Reason_Long,
 };
 use crate::GL_Config::{GL_App_Identifier, GL_Settings};
 use crate::GL_Features::{
@@ -169,6 +169,23 @@ fn GL_Test_Dir(name: &str) -> PathBuf {
     dir
 }
 
+fn GL_Test_Game(name: &str) -> PathBuf {
+    let game = GL_Test_Dir(name);
+    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    for kind in ["shaders", "sound", "ui"] {
+        fs::create_dir_all(game.join(GL_Media_Folder).join(kind)).unwrap();
+    }
+    game
+}
+
+fn GL_Test_Media_Count(bundle: &Path, addons: &[&GL_Addon]) -> usize {
+    addons
+        .iter()
+        .flat_map(|addon| GL_Media_Folders(bundle, addon))
+        .map(|folder| fs::read_dir(bundle.join(folder)).unwrap().count())
+        .sum()
+}
+
 fn GL_Test_Bundle() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("GL_Bundle")
 }
@@ -208,28 +225,41 @@ fn GL_Test_Bundle_Files() {
     for addon in GL_Addons {
         assert!(bundle.join(GL_Addon_Jar(addon)).is_file(), "{}", addon.id);
     }
-    let shaders = bundle.join(GL_Addon_Shaders(GL_Test_Environment()));
-    assert!(shaders.join("GM_Water_High.frag").is_file());
-    assert!(shaders.join("GM_Shaders_Screen.frag").is_file());
-    assert!(!bundle.join(GL_Addon_Shaders(GL_Test_Core())).exists());
+    let core = GL_Media_Folders(&bundle, GL_Test_Core());
+    assert_eq!(core, vec![PathBuf::from("media/sound/GL_Core"), PathBuf::from("media/ui/GL_Core")]);
+    assert!(bundle.join(&core[0]).join("GM_Gemini_Jingle.ogg").is_file());
+    assert!(bundle.join(&core[1]).join("GM_Legal_Warning.png").is_file());
+    let env = GL_Media_Folders(&bundle, GL_Test_Environment());
+    assert_eq!(env, vec![PathBuf::from("media/shaders/GM_Environment")]);
+    assert!(bundle.join(&env[0]).join("GM_Water_High.frag").is_file());
+    assert!(bundle.join(&env[0]).join("GM_Shaders_Screen.frag").is_file());
+    for kind in fs::read_dir(bundle.join(GL_Media_Folder)).unwrap() {
+        for folder in fs::read_dir(kind.unwrap().path()).unwrap() {
+            let name = folder.unwrap().file_name();
+            assert!(GL_Addon_Find(&name.to_string_lossy()).is_some(), "{name:?}");
+        }
+    }
 }
 
 #[test]
-fn GL_Test_Buddy_Shaders() {
+fn GL_Test_Buddy_Media() {
     let bundle = GL_Test_Bundle();
-    let game = GL_Test_Dir("Shaders");
-    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    let game = GL_Test_Game("Media");
     let core = GL_Test_Core();
     let env = GL_Test_Environment();
     let mut installed = BTreeMap::new();
 
+    GL_Buddy_Prepare(&bundle, &game, &[core], None, &mut installed, |_| Ok(())).unwrap();
+    assert!(!game.join("media/shaders/GM_Environment").exists());
+
     GL_Buddy_Prepare(&bundle, &game, &[core, env], None, &mut installed, |_| Ok(())).unwrap();
-    let folder = game.join(GL_Addon_Shaders(env));
-    let count = fs::read_dir(bundle.join(GL_Addon_Shaders(env))).unwrap().count();
-    assert!(count > 0);
-    assert_eq!(fs::read_dir(&folder).unwrap().count(), count);
-    assert_eq!(installed.len(), GL_Buddy_Files.len() + 2 + count);
-    let water = folder.join("GM_Water_High.frag");
+    let folders: Vec<PathBuf> = [core, env].iter().flat_map(|addon| GL_Media_Folders(&bundle, addon)).collect();
+    assert_eq!(folders.len(), 3);
+    for folder in &folders {
+        assert_eq!(fs::read_dir(game.join(folder)).unwrap().count(), fs::read_dir(bundle.join(folder)).unwrap().count());
+    }
+    assert_eq!(installed.len(), GL_Buddy_Files.len() + 2 + GL_Test_Media_Count(&bundle, &[core, env]));
+    let water = game.join("media/shaders/GM_Environment/GM_Water_High.frag");
     let hash = GL_Hash_File(&water).unwrap();
     assert_eq!(installed.get(&GL_Key(&water)), Some(&hash));
 
@@ -243,7 +273,10 @@ fn GL_Test_Buddy_Shaders() {
 
     GL_Buddy_Clean(&mut installed);
     assert!(installed.is_empty());
-    assert!(!folder.exists());
+    for folder in &folders {
+        assert!(!game.join(folder).exists(), "{}", folder.display());
+    }
+    assert!(game.join("media/ui").is_dir());
     assert!(!game.join("GL_Java").exists());
     let _ = fs::remove_dir_all(&game);
 }
@@ -268,8 +301,7 @@ fn GL_Test_Buddy_Arg() {
 #[test]
 fn GL_Test_Buddy_Install() {
     let bundle = GL_Test_Bundle();
-    let game = GL_Test_Dir("Install");
-    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    let game = GL_Test_Game("Install");
     fs::write(game.join("projectzomboid.jar"), b"game").unwrap();
     let core = GL_Test_Core();
     let mut installed = BTreeMap::new();
@@ -280,7 +312,8 @@ fn GL_Test_Buddy_Install() {
         assert_eq!(GL_Hash_File(&game.join(file.name)).unwrap(), file.sha256);
     }
     assert!(game.join(GL_Addon_Jar(core)).is_file());
-    assert_eq!(installed.len(), 3);
+    assert!(game.join("media/ui/GL_Core/GM_Legal_Warning.png").is_file());
+    assert_eq!(installed.len(), GL_Buddy_Files.len() + 1 + GL_Test_Media_Count(&bundle, &[core]));
     let leftovers: Vec<_> = fs::read_dir(&game)
         .unwrap()
         .filter_map(|e| e.ok())
@@ -301,6 +334,8 @@ fn GL_Test_Buddy_Install() {
     assert!(!game.join("zbNative.dll").exists());
     assert!(!game.join("ZombieBuddy.jar").exists());
     assert!(!game.join("GL_Java").exists());
+    assert!(!game.join("media/ui/GL_Core").exists());
+    assert!(!game.join("media/sound/GL_Core").exists());
     assert!(game.join("projectzomboid.jar").is_file());
     assert_eq!(fs::read_to_string(game.join("ProjectZomboid64.json")).unwrap(), GL_Sample_Json);
     let _ = fs::remove_dir_all(&game);
@@ -309,8 +344,7 @@ fn GL_Test_Buddy_Install() {
 #[test]
 fn GL_Test_Buddy_Foreign() {
     let bundle = GL_Test_Bundle();
-    let game = GL_Test_Dir("Foreign");
-    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    let game = GL_Test_Game("Foreign");
     fs::write(game.join("ZombieBuddy.jar"), b"theirs").unwrap();
     let core = GL_Test_Core();
     let mut installed = BTreeMap::new();
@@ -344,8 +378,7 @@ fn GL_Test_Buddy_Foreign() {
 #[test]
 fn GL_Test_Buddy_Leftovers() {
     let bundle = GL_Test_Bundle();
-    let game = GL_Test_Dir("Leftovers");
-    fs::write(game.join("ProjectZomboid64.json"), GL_Sample_Json).unwrap();
+    let game = GL_Test_Game("Leftovers");
     let core = GL_Test_Core();
     let mut installed = BTreeMap::new();
 
@@ -381,12 +414,14 @@ fn GL_Test_Buddy_Leftovers() {
 
     fs::write(game.join("ZombieBuddy.jar.bak"), b"old").unwrap();
     GL_Buddy_Clean(&mut installed);
-    let left: Vec<String> = fs::read_dir(&game)
+    let mut left: Vec<String> = fs::read_dir(&game)
         .unwrap()
         .filter_map(|e| e.ok())
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
-    assert_eq!(left, vec!["ProjectZomboid64.json".to_owned()]);
+    left.sort();
+    assert_eq!(left, vec!["ProjectZomboid64.json".to_owned(), "media".to_owned()]);
+    assert_eq!(fs::read_dir(game.join("media/ui")).unwrap().count(), 0);
     let _ = fs::remove_dir_all(&game);
 }
 
