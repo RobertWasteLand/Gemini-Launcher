@@ -229,6 +229,10 @@ fn GL_Test_Bundle_Files() {
     assert_eq!(core, vec![PathBuf::from("media/sound/GL_Core"), PathBuf::from("media/ui/GL_Core")]);
     assert!(bundle.join(&core[0]).join("GM_Gemini_Jingle.ogg").is_file());
     assert!(bundle.join(&core[1]).join("GM_Legal_Warning.png").is_file());
+    assert!(bundle.join(&core[0]).join("GM_Main_Menu_Theme.ogg").is_file());
+    assert!(bundle.join(&core[1]).join("GM_MainMenu_Frame.png").is_file());
+    assert!(bundle.join(&core[1]).join("GM_Label_Play_Alone.png").is_file());
+    assert!(bundle.join(&core[1]).join("GL_Menu.lua").is_file());
     let env = GL_Media_Folders(&bundle, GL_Test_Environment());
     assert_eq!(env, vec![PathBuf::from("media/shaders/GM_Environment")]);
     assert!(bundle.join(&env[0]).join("GM_Water_High.frag").is_file());
