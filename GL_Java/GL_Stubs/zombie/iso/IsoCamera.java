@@ -4,6 +4,11 @@ public final class IsoCamera {
     public static final FrameState frameState = null;
 
     public static final class FrameState {
+        public int frameCount;
+        public float offX;
+        public float offY;
+        public int offscreenWidth;
+        public int offscreenHeight;
         public float camCharacterX;
         public float camCharacterY;
         public float camCharacterZ;

@@ -2,6 +2,7 @@ package GL_Java.GM_Environment;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 
 import org.lwjgl.opengl.GL11;
 import zombie.IndieGL;
@@ -15,7 +16,6 @@ import zombie.iso.IsoWorld;
 import zombie.iso.fboRenderChunk.FBORenderCell;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
-import zombie.util.list.PZArrayList;
 
 final class GM_Stickers {
     static final int GM_Reach = 2;
@@ -75,7 +75,7 @@ final class GM_Stickers {
         if (light == null) {
             return;
         }
-        PZArrayList<IsoObject> objects = square.getObjects();
+        List<IsoObject> objects = square.getObjects();
         for (int i = 0; i < objects.size(); i++) {
             IsoObject object = objects.get(i);
             IsoSprite sprite = object == null ? null : object.getSprite();

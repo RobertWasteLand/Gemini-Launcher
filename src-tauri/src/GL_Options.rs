@@ -30,6 +30,8 @@ pub const GL_Option_Memory: &str = "GL_Memory";
 pub const GL_Option_Priority: &str = "GL_Priority";
 pub const GL_Option_Debug: &str = "GL_Debug";
 pub const GL_Arg_Debug: &str = "-debug";
+pub const GL_Option_Fewer: &str = "GM_Particles_Fewer";
+pub const GL_Arg_Fewer: &str = "-DGM_Particles_Fewer=true";
 pub const GL_Value_Auto: &str = "auto";
 pub const GL_Value_On: &str = "true";
 pub const GL_Value_Off: &str = "false";
@@ -50,6 +52,12 @@ pub const GL_Options: &[GL_Option] = &[
     GL_Option {
         id: GL_Option_Debug,
         label: "Debug Mode",
+        kind: GL_Option_Kind::Toggle,
+        default: GL_Value_Off,
+    },
+    GL_Option {
+        id: GL_Option_Fewer,
+        label: "Fewer Particles",
         kind: GL_Option_Kind::Toggle,
         default: GL_Value_Off,
     },
@@ -96,13 +104,18 @@ pub fn GL_Launch_Build(settings: &GL_Settings, total: u64) -> GL_Launch_Plan {
     let memory_option = GL_Option_Find(GL_Option_Memory).expect("memory option");
     let priority_option = GL_Option_Find(GL_Option_Priority).expect("priority option");
     let debug_option = GL_Option_Find(GL_Option_Debug).expect("debug option");
+    let fewer_option = GL_Option_Find(GL_Option_Fewer).expect("fewer option");
     let memory = GL_Memory::GL_Memory_Resolve(&GL_Option_Value(settings, memory_option, total), total);
     let mut game = Vec::new();
     if GL_Option_Value(settings, debug_option, total) == GL_Value_On {
         game.push(GL_Arg_Debug.to_owned());
     }
+    let mut jvm = vec![GL_Memory::GL_Memory_Arg(memory)];
+    if GL_Option_Value(settings, fewer_option, total) == GL_Value_On {
+        jvm.push(GL_Arg_Fewer.to_owned());
+    }
     GL_Launch_Plan {
-        jvm: vec![GL_Memory::GL_Memory_Arg(memory)],
+        jvm,
         game,
         priority: GL_Option_Value(settings, priority_option, total) == GL_Value_On,
         memory,

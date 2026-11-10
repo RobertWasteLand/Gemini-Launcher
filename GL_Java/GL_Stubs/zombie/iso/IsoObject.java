@@ -9,6 +9,10 @@ public class IsoObject {
         return null;
     }
 
+    public int getObjectIndex() {
+        return -1;
+    }
+
     public java.util.ArrayList<zombie.iso.sprite.IsoSpriteInstance> getAttachedAnimSprite() {
         return null;
     }

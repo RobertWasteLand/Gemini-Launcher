@@ -7,6 +7,10 @@ public class Texture {
         return null;
     }
 
+    public int getID() {
+        return 0;
+    }
+
     public boolean isReady() {
         return false;
     }

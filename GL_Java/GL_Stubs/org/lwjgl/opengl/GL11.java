@@ -31,6 +31,7 @@ public final class GL11 {
     public static final int GL_TEXTURE_WRAP_S = 10242;
     public static final int GL_TEXTURE_WRAP_T = 10243;
     public static final int GL_TRIANGLES = 4;
+    public static final int GL_TRIANGLE_STRIP = 5;
     public static final int GL_UNSIGNED_BYTE = 5121;
     public static final int GL_UNSIGNED_INT = 5125;
     public static final int GL_VIEWPORT = 2978;
@@ -86,6 +87,15 @@ public final class GL11 {
     }
 
     public static void glDisable(int target) {
+    }
+
+    public static void glEnable(int target) {
+    }
+
+    public static void glDepthFunc(int func) {
+    }
+
+    public static void glBlendFunc(int sfactor, int dfactor) {
     }
 
     public static void glDrawArrays(int mode, int first, int count) {

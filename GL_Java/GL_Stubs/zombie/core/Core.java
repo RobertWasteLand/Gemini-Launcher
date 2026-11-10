@@ -1,7 +1,7 @@
 package zombie.core;
 
 public final class Core {
-    public static int tileScale;
+    public static final int tileScale = 2;
     public static boolean debug;
     public static boolean soundDisabled;
 

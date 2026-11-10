@@ -24,11 +24,15 @@ public final class IsoGridSquare {
         return null;
     }
 
-    public zombie.util.list.PZArrayList<IsoObject> getObjects() {
+    public java.util.List<IsoObject> getObjects() {
         return null;
     }
 
     public zombie.core.textures.ColorInfo getLightInfo(int playerIndex) {
+        return null;
+    }
+
+    public IsoChunk getChunk() {
         return null;
     }
 }

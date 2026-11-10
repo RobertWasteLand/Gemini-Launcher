@@ -13,7 +13,7 @@ use crate::GL_Features::{
     GL_Preset_Gemini, GL_Preset_Vanilla, GL_Preset_Vanilla_Get,
 };
 use crate::GL_Memory::{GL_Memory_Auto, GL_Memory_Choices, GL_Memory_Limit, GL_Memory_Match, GL_Memory_Parse, GL_Memory_Resolve};
-use crate::GL_Options::{GL_Arg_Debug, GL_Launch_Build, GL_Option_Debug, GL_Option_Memory, GL_Option_Priority};
+use crate::GL_Options::{GL_Arg_Debug, GL_Arg_Fewer, GL_Launch_Build, GL_Option_Debug, GL_Option_Fewer, GL_Option_Memory, GL_Option_Priority};
 use crate::GL_Process::GL_Game_Args;
 use crate::GL_Steam::{GL_Steam_Installdir, GL_Steam_Libraries};
 use crate::GL_Vdf::{GL_Vdf_Parse, GL_Vdf_Value};
@@ -160,6 +160,23 @@ fn GL_Test_Launch_Plan() {
     assert_eq!(GL_Game_Args(&plan.jvm, &plan.game), vec!["-Xmx6g", "--", "-debug"]);
 }
 
+#[test]
+fn GL_Test_Particles_Addon() {
+    let addon = GL_Addon_Find("GM_Particles").expect("particles addon");
+    assert!(addon.required && addon.default);
+    assert_eq!(addon.label, "Particles");
+    let ids: Vec<&str> = GL_Addons.iter().map(|a| a.id).collect();
+    assert_eq!(ids, ["GL_Core", "GM_Environment", "GM_Particles"]);
+}
+
+#[test]
+fn GL_Test_Launch_Fewer() {
+    let mut settings = GL_Settings::default();
+    assert!(!GL_Launch_Build(&settings, 16).jvm.contains(&GL_Arg_Fewer.to_owned()));
+    settings.options.insert(GL_Option_Fewer.to_owned(), "true".to_owned());
+    assert!(GL_Launch_Build(&settings, 16).jvm.contains(&GL_Arg_Fewer.to_owned()));
+}
+
 const GL_Sample_Json: &str = r#"{"mainClass":"zombie/gameStates/MainScreenState","classpath":[".","projectzomboid.jar"],"vmArgs":["-Xmx3072m"]}"#;
 
 fn GL_Test_Dir(name: &str) -> PathBuf {
@@ -231,6 +248,7 @@ fn GL_Test_Bundle_Files() {
     assert!(bundle.join(&core[1]).join("GM_Legal_Warning.png").is_file());
     assert!(bundle.join(&core[0]).join("GM_Main_Menu_Theme.ogg").is_file());
     assert!(bundle.join(&core[1]).join("GM_MainMenu_Frame.png").is_file());
+    assert!(bundle.join("media/ui/GM_Particles/GM_Particles.lua").is_file());
     assert!(bundle.join(&core[1]).join("GM_Label_Play_Alone.png").is_file());
     assert!(bundle.join(&core[1]).join("GL_Menu.lua").is_file());
     let env = GL_Media_Folders(&bundle, GL_Test_Environment());

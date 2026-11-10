@@ -1,6 +1,8 @@
 package zombie.iso;
 
 public final class IsoDepthHelper {
+    public static final float SQUARE_DEPTH = 0.0028867084f;
+
     public static final class Results {
         public float depthStart;
     }

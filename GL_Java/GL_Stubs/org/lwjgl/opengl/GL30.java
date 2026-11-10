@@ -2,12 +2,16 @@ package org.lwjgl.opengl;
 
 public final class GL30 {
     public static final int GL_COLOR_ATTACHMENT0 = 36064;
+    public static final int GL_DEPTH24_STENCIL8 = 35056;
     public static final int GL_DEPTH_ATTACHMENT = 36096;
+    public static final int GL_DEPTH_STENCIL = 34041;
+    public static final int GL_DEPTH_STENCIL_ATTACHMENT = 33306;
     public static final int GL_DRAW_FRAMEBUFFER = 36009;
     public static final int GL_FRAMEBUFFER = 36160;
     public static final int GL_FRAMEBUFFER_COMPLETE = 36053;
     public static final int GL_READ_FRAMEBUFFER = 36008;
     public static final int GL_RGBA16F = 34842;
+    public static final int GL_UNSIGNED_INT_24_8 = 34042;
     public static final int GL_VERTEX_ARRAY_BINDING = 34229;
 
     public static int glGenFramebuffers() {

@@ -5,6 +5,7 @@ public final class GL15 {
     public static final int GL_QUERY_RESULT = 34918;
     public static final int GL_QUERY_RESULT_AVAILABLE = 34919;
     public static final int GL_STATIC_DRAW = 35044;
+    public static final int GL_STREAM_DRAW = 35040;
 
     public static int glGenBuffers() {
         return 0;
@@ -14,6 +15,9 @@ public final class GL15 {
     }
 
     public static void glBufferData(int target, float[] data, int usage) {
+    }
+
+    public static void glBufferData(int target, java.nio.FloatBuffer data, int usage) {
     }
 
     public static void glGenQueries(int[] ids) {

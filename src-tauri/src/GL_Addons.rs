@@ -26,6 +26,12 @@ pub const GL_Addons: &[GL_Addon] = &[
         required: false,
         default: true,
     },
+    GL_Addon {
+        id: "GM_Particles",
+        label: "Particles",
+        required: true,
+        default: true,
+    },
 ];
 
 pub fn GL_Addon_Find(id: &str) -> Option<&'static GL_Addon> {

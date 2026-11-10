@@ -8,6 +8,7 @@ const GL_Notes_Url = "https://raw.githubusercontent.com/RobertWasteLand/Gemini-L
 const GL_Notes_Key = "GL_Notes_Cache";
 const GL_Notes_Timeout = 10000;
 const GL_Tab_Key = "GL_Tab";
+const GL_Option_Fewer = "GM_Particles_Fewer";
 
 let GL_Options_Key = "";
 let GL_Environment_Key = "";
@@ -81,7 +82,7 @@ function GL_Addon_Row(addon) {
   return row;
 }
 
-function GL_Addons_Render(list, addons) {
+function GL_Addons_Render(list, addons, fewer) {
   const divider = document.createElement("hr");
   divider.className = "GL_Divider";
   const heading = document.createElement("h2");
@@ -92,10 +93,12 @@ function GL_Addons_Render(list, addons) {
     empty.className = "GL_Empty";
     empty.textContent = "No addons yet.";
     list.append(empty);
-    return;
   }
   for (const addon of addons) {
     list.append(GL_Addon_Row(addon));
+  }
+  if (fewer) {
+    list.append(GL_Option_Toggle(fewer));
   }
 }
 
@@ -109,9 +112,11 @@ function GL_Options_Render(status) {
     list.append(empty);
   }
   for (const option of status.options) {
-    list.append(option.kind === "choice" ? GL_Option_Choice(option) : GL_Option_Toggle(option));
+    if (option.id !== GL_Option_Fewer) {
+      list.append(option.kind === "choice" ? GL_Option_Choice(option) : GL_Option_Toggle(option));
+    }
   }
-  GL_Addons_Render(list, status.addons);
+  GL_Addons_Render(list, status.addons, status.options.find((option) => option.id === GL_Option_Fewer));
 }
 
 function GL_Feature_Switch(feature) {

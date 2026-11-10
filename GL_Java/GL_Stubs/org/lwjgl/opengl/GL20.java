@@ -10,6 +10,19 @@ public final class GL20 {
     public static void glUniform1i(int location, int v0) {
     }
 
+    public static void glUniform2f(int location, float v0, float v1) {
+    }
+
+    public static void glUniform3f(int location, float v0, float v1, float v2) {
+    }
+
+    public static void glUniformMatrix4fv(int location, boolean transpose, float[] value) {
+    }
+
+    public static int glGetAttribLocation(int program, CharSequence name) {
+        return 0;
+    }
+
     public static void glUniform1f(int location, float v0) {
     }
 

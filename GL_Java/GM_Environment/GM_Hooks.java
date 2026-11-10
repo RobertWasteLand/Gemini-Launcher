@@ -25,7 +25,7 @@ import me.zed_0xff.zombie_buddy.Patch;
 import zombie.core.Core;
 
 final class GM_Hooks {
-    static final String GM_Verified = "42.21.0 4a0e9546ec";
+    static final String GM_Verified = "42.22.2 3d39148846";
     private static final int GM_Shown_Max = 6;
 
     private final ClassLoader loader;
@@ -49,7 +49,8 @@ final class GM_Hooks {
             return null;
         }
         String ms = String.format(Locale.ROOT, "%.0f", (System.nanoTime() - start) / 1.0e6);
-        String game = version + (GM_Verified.equals(version) ? " (verified)" : " (not verified yet, built for " + GM_Verified + ")");
+        boolean known = version.equals(GM_Verified) || version.startsWith(GM_Verified + " ");
+        String game = version + (known ? " (verified)" : " (not verified yet, built for " + GM_Verified + ")");
         if (hooks.missing.isEmpty()) {
             System.out.println("[GL_Java] GM_Environment game check: " + hooks.seen.size() + " game hooks and " + hooks.patches + " patches ok on " + game + ", " + ms + " ms");
             return null;
