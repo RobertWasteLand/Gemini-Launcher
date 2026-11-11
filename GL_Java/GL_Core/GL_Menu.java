@@ -91,7 +91,7 @@ public final class GL_Menu {
     public static void GL_Lua_Run() {
         try {
             String path = GL_Intro_Art.GL_Art_Pictures + GL_Menu_Lua;
-            File file = new File(new File("").getAbsoluteFile(), path);
+            File file = new File(path).getAbsoluteFile();
             if (!file.isFile()) {
                 GL_Off(file.getName() + " is missing from " + file.getParent());
                 return;
@@ -121,7 +121,7 @@ public final class GL_Menu {
                 throw new IllegalStateException("the game's sound is disabled");
             }
             if (GL_Theme_Sound == 0L) {
-                File file = new File(new File("").getAbsoluteFile(), GL_Intro_Art.GL_Art_Sounds + GL_Menu_Theme);
+                File file = new File(GL_Intro_Art.GL_Art_Sounds + GL_Menu_Theme).getAbsoluteFile();
                 if (!file.isFile()) {
                     throw new IllegalStateException(file.getName() + " is missing from " + file.getParent());
                 }
@@ -190,7 +190,7 @@ public final class GL_Menu {
 
     private static Texture GL_Picture(String name, int flags) {
         String path = GL_Intro_Art.GL_Art_Pictures + name + ".png";
-        File file = new File(new File("").getAbsoluteFile(), path);
+        File file = new File(path).getAbsoluteFile();
         if (!file.isFile()) {
             throw new IllegalStateException(file.getName() + " is missing from " + file.getParent());
         }

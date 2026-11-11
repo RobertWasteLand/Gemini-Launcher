@@ -31,10 +31,6 @@ fn GL_Launch_Report(app: &AppHandle, text: &str) {
     let _ = app.emit(GL_Launch_Event, text);
 }
 
-fn GL_Addons_Off(reason: &str) -> String {
-    format!("Addons are off: {reason}.")
-}
-
 fn GL_Memory_Text(mb: u64) -> String {
     let gb = mb as f64 / 1024.0;
     if (gb - gb.round()).abs() < 0.05 {
@@ -164,7 +160,7 @@ pub fn GL_Game_Launch(app: &AppHandle) -> Result<(), String> {
                     notes.push(format!("The game's Environment file couldn't be updated ({e})."));
                 }
             }
-            Err(reason) => notes.push(GL_Addons_Off(&reason)),
+            Err(reason) => notes.push(format!("Addons are off: {reason}.")),
         }
     }
 

@@ -4,6 +4,4 @@ public interface KahluaTableIterator {
     boolean advance();
 
     Object getKey();
-
-    Object getValue();
 }

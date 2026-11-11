@@ -8,7 +8,6 @@ public final class GL11 {
     public static final int GL_CLIENT_ALL_ATTRIB_BITS = -1;
     public static final int GL_CULL_FACE = 2884;
     public static final int GL_DEPTH_BUFFER_BIT = 256;
-    public static final int GL_DEPTH_COMPONENT = 6402;
     public static final int GL_DEPTH_TEST = 2929;
     public static final int GL_FLOAT = 5126;
     public static final int GL_LEQUAL = 515;
@@ -33,7 +32,6 @@ public final class GL11 {
     public static final int GL_TRIANGLES = 4;
     public static final int GL_TRIANGLE_STRIP = 5;
     public static final int GL_UNSIGNED_BYTE = 5121;
-    public static final int GL_UNSIGNED_INT = 5125;
     public static final int GL_VIEWPORT = 2978;
 
     public static int glGenTextures() {

@@ -174,8 +174,12 @@ final class GM_Pass extends TextureDraw.GenericDrawer {
     }
 
     private static void GM_Release() {
-        if (GM_Depth_Fbo != 0) GL30.glDeleteFramebuffers(GM_Depth_Fbo);
-        if (GM_Depth_Tex != 0) GL11.glDeleteTextures(GM_Depth_Tex);
+        if (GM_Depth_Fbo != 0) {
+            GL30.glDeleteFramebuffers(GM_Depth_Fbo);
+        }
+        if (GM_Depth_Tex != 0) {
+            GL11.glDeleteTextures(GM_Depth_Tex);
+        }
         GM_Depth_Fbo = 0;
         GM_Depth_Tex = 0;
     }

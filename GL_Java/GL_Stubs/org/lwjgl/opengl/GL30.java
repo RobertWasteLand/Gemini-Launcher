@@ -3,7 +3,6 @@ package org.lwjgl.opengl;
 public final class GL30 {
     public static final int GL_COLOR_ATTACHMENT0 = 36064;
     public static final int GL_DEPTH24_STENCIL8 = 35056;
-    public static final int GL_DEPTH_ATTACHMENT = 36096;
     public static final int GL_DEPTH_STENCIL = 34041;
     public static final int GL_DEPTH_STENCIL_ATTACHMENT = 33306;
     public static final int GL_DRAW_FRAMEBUFFER = 36009;

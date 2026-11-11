@@ -491,9 +491,6 @@ final class GM_Field {
     }
 
     private static String GM_Floor_Sprite(IsoGridSquare square) {
-        if (square == null) {
-            return null;
-        }
         IsoObject floor = square.getFloor();
         if (floor == null) {
             return null;

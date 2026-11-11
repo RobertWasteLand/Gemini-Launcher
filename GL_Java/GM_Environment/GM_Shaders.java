@@ -1,15 +1,19 @@
 package GL_Java.GM_Environment;
 
+import java.util.ArrayList;
+
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
 import zombie.GameTime;
 import zombie.characters.IsoPlayer;
+import zombie.characters.IsoZombie;
 import zombie.core.Color;
 import zombie.core.Core;
 import zombie.core.SceneShaderStore;
 import zombie.core.SpriteRenderer;
 import zombie.core.opengl.RenderThread;
+import zombie.core.opengl.Shader;
 import zombie.core.textures.Texture;
 import zombie.core.textures.TextureDraw;
 import zombie.debug.DebugLog;
@@ -210,7 +214,7 @@ final class GM_Shaders {
 
     private static void GM_Restore() {
         if (GM_Screen != null && GM_Vanilla != null && SceneShaderStore.weatherShader == GM_Screen) {
-            SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Vanilla;
+            SceneShaderStore.weatherShader = (Shader) GM_Vanilla;
         }
     }
 
@@ -227,12 +231,12 @@ final class GM_Shaders {
             GM_Restore();
             return;
         }
-        zombie.core.opengl.Shader current = SceneShaderStore.weatherShader;
+        Shader current = SceneShaderStore.weatherShader;
         if (current == null) {
             return;
         }
         if (GM_Screen != null) {
-            if (!((zombie.core.opengl.Shader) GM_Screen).isCompiled()) {
+            if (!((Shader) GM_Screen).isCompiled()) {
                 GM_Fail("the screen shader stopped compiling", new IllegalStateException(GM_Name));
                 return;
             }
@@ -244,10 +248,10 @@ final class GM_Shaders {
             if (GM_Settings.GM_Get().screen && !shared) {
                 if (current != GM_Screen) {
                     GM_Vanilla = current;
-                    SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Screen;
+                    SceneShaderStore.weatherShader = (Shader) GM_Screen;
                 }
             } else if (current == GM_Screen && GM_Vanilla != null) {
-                SceneShaderStore.weatherShader = (zombie.core.opengl.Shader) GM_Vanilla;
+                SceneShaderStore.weatherShader = (Shader) GM_Vanilla;
             }
             return;
         }
@@ -303,7 +307,7 @@ final class GM_Shaders {
                 return;
             }
             if (fx < 0) {
-                GM_Fail("the pack's screen shader is older than this launcher, so the screen stays vanilla until the pack updates", new IllegalStateException(GM_Name));
+                GM_Fail("the screen shader is older than this add-on, keeping the game's screen pass", new IllegalStateException(GM_Name));
                 return;
             }
             GM_Screen = shader;
@@ -435,7 +439,7 @@ final class GM_Shaders {
         IsoCell cell = world == null ? null : world.currentCell;
         if (cell != null) {
             if (GameClient.client) {
-                java.util.ArrayList<IsoPlayer> others = GameClient.instance.getPlayers();
+                ArrayList<IsoPlayer> others = GameClient.instance.getPlayers();
                 for (int i = 0; others != null && i < others.size() && next < GM_Track_Count; i++) {
                     IsoPlayer other = others.get(i);
                     if (other != null && !other.isLocalPlayer()) {
@@ -443,7 +447,7 @@ final class GM_Shaders {
                     }
                 }
             }
-            java.util.ArrayList<zombie.characters.IsoZombie> zombies = cell.getZombieList();
+            ArrayList<IsoZombie> zombies = cell.getZombieList();
             for (int i = 0; zombies != null && i < zombies.size() && next < GM_Track_Count; i++) {
                 next = GM_Mover_Track(frame, zombies.get(i), next, camX, camY, dt);
             }

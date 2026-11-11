@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Set;
 import se.krka.kahlua.vm.KahluaTable;
 import se.krka.kahlua.vm.KahluaTableIterator;
+import zombie.core.textures.Texture;
 
 final class GM_Particles_Def {
     private static final Set<String> GM_Settings = Set.of(
@@ -37,7 +38,7 @@ final class GM_Particles_Def {
     boolean crisp;
     boolean follow;
     String picture;
-    zombie.core.textures.Texture texture;
+    Texture texture;
     boolean pictureMissing;
 
     private GM_Particles_Def() {
