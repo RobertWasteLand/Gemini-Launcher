@@ -22,6 +22,7 @@ concurrency:
 
 jobs:
   GL_Release:
+    if: github.repository == 'RobertWasteLand/Gemini-Launcher'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7

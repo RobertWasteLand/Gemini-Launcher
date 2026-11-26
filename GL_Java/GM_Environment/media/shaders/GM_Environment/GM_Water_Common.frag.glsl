@@ -146,6 +146,11 @@ vec2 GM_Sphere_Map(vec3 n, vec3 e)
 	return vec2(r.x / m + 0.5, r.y / m + 0.5);
 }
 
+vec3 GM_Sky_At(vec2 uv)
+{
+	return mix(texture2D(WaterTextureReflectionB, uv).rgb, texture2D(WaterTextureReflectionA, uv).rgb, min(WReflectionParam, 1.0));
+}
+
 float GM_Shore_Gap(vec2 uv)
 {
 	return (1.0 - texture2D(GM_Field, uv).b) * GM_Near_Range - 0.5;
@@ -256,8 +261,7 @@ void GM_Water_Main(float quality)
 		vec3 tinted = mix(GM_Clear, ground, GM_Bank_Show) * (0.88 + ca * (0.40 + 0.35 * GM_Toon));
 		base = mix(base, tinted, clear * 0.62);
 	}
-	vec2 rf = GM_Sphere_Map(vec3(0.0, 1.0, 0.0), posEye);
-	vec3 skyBody = mix(texture2D(WaterTextureReflectionB, rf).rgb, texture2D(WaterTextureReflectionA, rf).rgb, min(WReflectionParam, 1.0));
+	vec3 skyBody = (GM_Sky_At(vec2(0.3, 0.1)) + GM_Sky_At(vec2(0.7, 0.1)) + GM_Sky_At(vec2(0.3, 0.3)) + GM_Sky_At(vec2(0.7, 0.3))) * 0.25;
 	base = mix(base, skyBody * GM_Sky_Tint, GM_Sky_Body);
 	vec3 col = base * (0.86 + 0.18 * dif) * (0.94 + 0.12 * swell);
 	col = mix(col, mix(col, GM_Light, 0.6), band1 * (0.14 + 0.10 * GM_Toon));
