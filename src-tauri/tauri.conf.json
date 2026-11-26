@@ -47,7 +47,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE5MzlDOUVCMDUxMTJEMzcKUldRM0xSRUY2OGs1R1o4Qy9HVUJKbFFoVi9ibG9jV2x5NzFwdFdOeWJDMDI2S0FCTTVSY3R1L0QK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFBMDA2RjFDQTU1NzE3RDMKUldUVEYxZWxIRzhBR3NwVjM4N1MyNzNCdGNQaE1Qb1ZaWUxYVjdWY3B2M3RjbEF0L2lsdnpiZm4K",
       "endpoints": [
         "https://github.com/RobertWasteLand/Gemini-Launcher/releases/latest/download/latest.json"
       ],
