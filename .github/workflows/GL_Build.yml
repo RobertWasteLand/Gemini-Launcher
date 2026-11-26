@@ -1,0 +1,49 @@
+name: GL_Build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "GL_Live/**"
+      - "README.md"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  GL_Windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: GL_Bundle
+        run: node GL_Java/GL_Bundle.mjs
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - run: npx tauri build --config src-tauri/GL_Build.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: GL_Launcher_Windows
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/GL_Launcher.exe
+          if-no-files-found: error

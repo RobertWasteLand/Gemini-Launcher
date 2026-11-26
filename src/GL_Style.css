@@ -1,0 +1,571 @@
+@font-face {
+  font-family: "GL_Alagard";
+  src: url("GL_Alagard.ttf") format("truetype");
+}
+
+:root {
+  --GL_Night: #2b212e;
+  --GL_Panel_Edge: #67605b;
+  --GL_Face: #433535;
+  --GL_Face_Hover: #524c4a;
+  --GL_Edge_Light: #716964;
+  --GL_Edge_Dark: #080809;
+  --GL_Ink: #e9e8e9;
+  --GL_Muted: #b9abb3;
+  --GL_Dim: #8a7f86;
+  --GL_Danger: #ff9d8f;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--GL_Muted) transparent;
+}
+
+html,
+body {
+  width: 1000px;
+  height: 600px;
+}
+
+body {
+  font: 400 16px/20px "GL_Alagard", "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  color: var(--GL_Ink);
+  background: var(--GL_Night);
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+button,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+h2,
+h3 {
+  font: inherit;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.GL_Filters {
+  position: absolute;
+}
+
+h2,
+h3,
+strong,
+pre,
+.GL_Option_Text,
+.GL_Empty,
+.GL_Game_Line,
+.GL_Brand p,
+.GL_Tab,
+.GL_Slider_Value,
+.GL_Message,
+.GL_Dialog p,
+.GL_Select,
+.GL_Link_Top,
+button > span {
+  filter: url("#GL_Crisp");
+}
+
+.GL_Frame {
+  position: relative;
+  width: 1000px;
+  height: 600px;
+  background: url("GL_Background.png") no-repeat 0 0;
+  image-rendering: pixelated;
+}
+
+.GL_Window_Controls {
+  position: absolute;
+  left: 947px;
+  top: 10px;
+  z-index: 2;
+  width: 43px;
+  height: 21px;
+}
+
+.GL_Window_Controls button {
+  position: absolute;
+  top: 0;
+  height: 21px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+#GL_Window_Minimize {
+  left: 0;
+  width: 21px;
+}
+
+#GL_Window_Close {
+  left: 21px;
+  width: 22px;
+}
+
+.GL_Window_Controls button:hover {
+  backdrop-filter: brightness(1.4);
+}
+
+.GL_Options {
+  position: absolute;
+  left: 16px;
+  top: 23px;
+  width: 344px;
+  height: 551px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.GL_Options > h2 {
+  margin-bottom: 10px;
+}
+
+.GL_Options_List {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.GL_Option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.GL_Option input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  border: 2px solid var(--GL_Edge_Light);
+  background: var(--GL_Night);
+  cursor: pointer;
+}
+
+.GL_Option input[type="checkbox"]:checked {
+  background: var(--GL_Muted);
+  box-shadow: inset 0 0 0 2px var(--GL_Night);
+}
+
+.GL_Option input[type="checkbox"]:disabled {
+  cursor: default;
+}
+
+.GL_Option_Text {
+  display: flex;
+  flex-direction: column;
+}
+
+.GL_Author {
+  color: var(--GL_Muted);
+}
+
+.GL_Option_Choice {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.GL_Select_Box {
+  align-self: stretch;
+  background: var(--GL_Night);
+}
+
+.GL_Select {
+  width: 100%;
+  height: 30px;
+  padding: 0 6px;
+  border: 2px solid var(--GL_Edge_Light);
+  background: transparent;
+  color: var(--GL_Ink);
+}
+
+.GL_Select option {
+  background: var(--GL_Night);
+  color: var(--GL_Ink);
+}
+
+.GL_Empty {
+  color: var(--GL_Muted);
+}
+
+.GL_Divider {
+  flex: none;
+  border: none;
+  border-top: 2px solid var(--GL_Panel_Edge);
+  margin: 4px 0 0;
+}
+
+.GL_Game_Line {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--GL_Muted);
+  white-space: nowrap;
+}
+
+.GL_Game_Line span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.GL_Game_Line button {
+  flex: none;
+}
+
+.GL_Link {
+  border: none;
+  background: none;
+  padding: 0;
+  text-decoration: underline;
+  color: var(--GL_Ink);
+}
+
+.GL_Link:disabled {
+  color: var(--GL_Dim);
+  text-decoration: none;
+}
+
+.GL_Brand {
+  position: absolute;
+  left: 620px;
+  top: 150px;
+  width: 364px;
+  height: 20px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--GL_Muted);
+}
+
+.GL_Update:not(:empty)::before {
+  content: "- ";
+}
+
+.GL_Notes {
+  position: absolute;
+  left: 388px;
+  top: 176px;
+  width: 595px;
+  height: 266px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.GL_Notes pre {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font: inherit;
+  user-select: text;
+  cursor: text;
+}
+
+.GL_Page[hidden] {
+  display: none;
+}
+
+.GL_Tabs {
+  display: flex;
+  gap: 18px;
+  height: 24px;
+  margin-bottom: 10px;
+}
+
+.GL_Tab {
+  height: 24px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  padding: 0 0 2px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--GL_Muted);
+}
+
+.GL_Tab:hover,
+.GL_Tab_Active {
+  color: var(--GL_Ink);
+}
+
+.GL_Tab_Active {
+  border-bottom-color: var(--GL_Ink);
+}
+
+.GL_Environment,
+.GL_Patches {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.GL_Disabled .GL_Group_Feature,
+.GL_Disabled .GL_Patches_List {
+  opacity: 0.45;
+}
+
+.GL_Patches_List {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.GL_Presets {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.GL_Presets[hidden] {
+  display: none;
+}
+
+.GL_Preset {
+  height: 26px;
+  padding: 0 12px;
+  border: 2px solid;
+  border-color: var(--GL_Edge_Light) var(--GL_Edge_Dark) var(--GL_Edge_Dark) var(--GL_Edge_Light);
+  background: var(--GL_Face);
+  color: var(--GL_Ink);
+}
+
+.GL_Preset:disabled {
+  opacity: 0.45;
+}
+
+.GL_Preset:hover:not(:disabled) {
+  background: var(--GL_Face_Hover);
+}
+
+.GL_Environment_List {
+  width: 568px;
+  columns: 2;
+  column-gap: 28px;
+}
+
+.GL_Group {
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 6px;
+}
+
+.GL_Group h3 {
+  color: var(--GL_Muted);
+}
+
+.GL_Feature_Row {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.GL_Option .GL_Slider {
+  flex: 1;
+  min-width: 0;
+  height: 16px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.GL_Slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 2px solid var(--GL_Edge_Light);
+  background: var(--GL_Night);
+}
+
+.GL_Slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 16px;
+  margin-top: -7px;
+  border: 2px solid;
+  border-color: var(--GL_Edge_Light) var(--GL_Edge_Dark) var(--GL_Edge_Dark) var(--GL_Edge_Light);
+  background: var(--GL_Muted);
+}
+
+.GL_Slider:disabled {
+  cursor: default;
+}
+
+.GL_Slider_Value {
+  width: 28px;
+  text-align: right;
+}
+
+#GL_Play_Button {
+  position: absolute;
+  left: 387px;
+  top: 463px;
+  width: 314px;
+  height: 71px;
+  padding: 4px 3px 7px;
+  border: none;
+  background: url("GL_Play_Button.png") no-repeat 0 0;
+  color: var(--GL_Ink);
+  font-size: 32px;
+  line-height: 32px;
+  letter-spacing: 4px;
+}
+
+#GL_Play_Button:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+#GL_Play_Button:disabled {
+  filter: brightness(0.8);
+  color: var(--GL_Muted);
+}
+
+.GL_Message {
+  position: absolute;
+  left: 388px;
+  top: 536px;
+  width: 346px;
+  height: 40px;
+  overflow-y: auto;
+}
+
+.GL_Message.GL_Error {
+  color: var(--GL_Danger);
+}
+
+.GL_Links {
+  position: absolute;
+  left: 742px;
+  top: 468px;
+  width: 248px;
+  height: 123px;
+}
+
+.GL_Link_Button {
+  position: absolute;
+  width: 62px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--GL_Ink);
+}
+
+.GL_Link_Top {
+  top: 0;
+  height: 61px;
+  padding: 20px 4px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.GL_Link_Bottom {
+  top: 61px;
+  height: 62px;
+}
+
+.GL_Link_At_0 {
+  left: 0;
+}
+
+.GL_Link_At_1 {
+  left: 62px;
+}
+
+.GL_Link_At_2 {
+  left: 124px;
+}
+
+.GL_Link_At_3 {
+  left: 186px;
+}
+
+.GL_Link_Button:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--GL_Muted);
+}
+
+.GL_Link_Button:disabled {
+  background: rgba(43, 33, 46, 0.6);
+}
+
+.GL_Overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 210px;
+  background: rgba(8, 8, 9, 0.55);
+}
+
+.GL_Overlay[hidden] {
+  display: none;
+}
+
+.GL_Dialog {
+  position: relative;
+  width: 360px;
+  height: 160px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: url("GL_Update_Popup.png") no-repeat 0 0;
+}
+
+.GL_Dialog h2 {
+  margin-bottom: 2px;
+}
+
+.GL_Dialog_From {
+  color: var(--GL_Muted);
+}
+
+.GL_Dialog_Button {
+  position: absolute;
+  top: 108px;
+  height: 32px;
+  padding: 8px 0 4px;
+  border: none;
+  background: transparent;
+}
+
+#GL_Update_Now_Button {
+  left: 150px;
+  width: 114px;
+}
+
+#GL_Update_Later_Button {
+  left: 271px;
+  width: 67px;
+  padding-left: 1px;
+}
+
+.GL_Dialog_Button:hover:not(:disabled) {
+  backdrop-filter: brightness(1.25);
+}

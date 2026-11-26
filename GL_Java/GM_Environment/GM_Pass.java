@@ -1,0 +1,354 @@
+package GL_Java.GM_Environment;
+
+import java.nio.ByteBuffer;
+
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
+import zombie.core.Core;
+import zombie.core.SpriteRenderer;
+import zombie.core.opengl.ShaderProgram;
+import zombie.core.textures.Texture;
+import zombie.core.textures.TextureDraw;
+import zombie.core.textures.TextureFBO;
+
+final class GM_Pass extends TextureDraw.GenericDrawer {
+    static final String GM_Sim_Name = "GM_Environment/GM_Shaders_Fog";
+    static final int GM_Fog_Size = 512;
+    static final float GM_Fog_Jump = 40.0f;
+    private static final int GM_Error_Max = 32;
+    private static final int GM_Margin = 64;
+    private static int GM_X0;
+    private static int GM_Y0;
+    private static int GM_X1;
+    private static int GM_Y1;
+
+    private static ShaderProgram GM_Sim_Program;
+    private static int GM_Depth_Tex;
+    private static int GM_Depth_Fbo;
+    private static final int[] GM_Fog_Tex = new int[2];
+    private static final int[] GM_Fog_Fbo = new int[2];
+    private static int GM_Fog_Current;
+    private static float GM_Window_X;
+    private static float GM_Window_Y;
+    private static volatile boolean GM_Fog_Fresh = true;
+    private static int GM_Vao;
+    private static int GM_Vbo;
+    private static int GM_W;
+    private static int GM_H;
+    private static boolean GM_Ready;
+    private static final int[] GM_Viewport = new int[4];
+
+    private static final GM_Shaders.GM_Locs GM_Sim_Locs = new GM_Shaders.GM_Locs();
+    private static int GM_Sim_Prev = -1;
+    private static int GM_Sim_Step = -1;
+
+    private GM_Shaders.GM_Frame frame;
+
+    GM_Pass GM_Use(GM_Shaders.GM_Frame frame) {
+        this.frame = frame;
+        return this;
+    }
+
+    static int GM_Depth_Texture() {
+        return GM_Depth_Tex;
+    }
+
+    static int GM_Fog_Texture() {
+        return GM_Fog_Tex[GM_Fog_Current];
+    }
+
+    static int GM_Width() {
+        return GM_W;
+    }
+
+    static int GM_Height() {
+        return GM_H;
+    }
+
+    static void GM_Fog_Reset() {
+        GM_Fog_Fresh = true;
+    }
+
+    static boolean GM_Create() {
+        GM_Sim_Program = GM_Program(GM_Sim_Name);
+        if (GM_Sim_Program == null) {
+            return false;
+        }
+        GM_Locations();
+        if (GM_Vao == 0) {
+            int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+            GM_Vao = GL30.glGenVertexArrays();
+            GM_Vbo = GL15.glGenBuffers();
+            GL30.glBindVertexArray(GM_Vao);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, GM_Vbo);
+            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, new float[] {-1.0f, -1.0f, 3.0f, -1.0f, -1.0f, 3.0f}, GL15.GL_STATIC_DRAW);
+            GL20.glEnableVertexAttribArray(0);
+            GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 0, 0L);
+            GL30.glBindVertexArray(prevVao);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+            SpriteRenderer.ringBuffer.restoreVbos = true;
+        }
+        if (GM_Fog_Tex[0] == 0) {
+            int prevFbo = TextureFBO.getCurrentID();
+            int prevTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+            try {
+                GM_Memory_Clear();
+                for (int i = 0; i < 2; i++) {
+                    GM_Fog_Tex[i] = GM_Texture_Make(GM_Fog_Size, GM_Fog_Size, false);
+                    GM_Fog_Fbo[i] = GM_Fbo_Make(GM_Fog_Tex[i], false);
+                }
+                GM_Memory_Check("fog");
+            } finally {
+                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, prevTexture);
+                Texture.lastTextureID = -1;
+                SpriteRenderer.ringBuffer.restoreBoundTextures = true;
+            }
+            GM_Fog_Fresh = true;
+        }
+        GM_Ready = true;
+        return true;
+    }
+
+    private static int GM_Id(ShaderProgram program, String name) {
+        int id = program.getShaderID();
+        if (id == 0) {
+            throw new IllegalStateException(name + " stopped compiling");
+        }
+        return id;
+    }
+
+    private static void GM_Locations() {
+        int sim = GM_Id(GM_Sim_Program, GM_Sim_Name);
+        if (sim != GM_Sim_Locs.program) {
+            GM_Sim_Locs.GM_Find(sim);
+            GM_Sim_Prev = GL20.glGetUniformLocation(sim, "GM_Fog_Prev");
+            GM_Sim_Step = GL20.glGetUniformLocation(sim, "GM_Fog_Step");
+        }
+    }
+
+    private static ShaderProgram GM_Program(String name) {
+        ShaderProgram program = ShaderProgram.createShaderProgram(name, false, false, true);
+        if (program == null || !program.isCompiled()) {
+            System.out.println("[GL_Java] GM_Environment shaders: " + name + " did not compile");
+            return null;
+        }
+        return program;
+    }
+
+    private static int GM_Texture_Make(int width, int height, boolean depth) {
+        int texture = GL11.glGenTextures();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
+        if (depth) {
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_DEPTH24_STENCIL8, width, height, 0, GL30.GL_DEPTH_STENCIL, GL30.GL_UNSIGNED_INT_24_8, (ByteBuffer) null);
+        } else {
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, width, height, 0, GL11.GL_RGBA, GL11.GL_FLOAT, (ByteBuffer) null);
+        }
+        int filter = depth ? GL11.GL_NEAREST : GL11.GL_LINEAR;
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, filter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, filter);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
+        return texture;
+    }
+
+    private static int GM_Fbo_Make(int texture, boolean depth) {
+        int fbo = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        if (depth) {
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL11.GL_TEXTURE_2D, texture, 0);
+            GL11.glDrawBuffer(GL11.GL_NONE);
+            GL11.glReadBuffer(GL11.GL_NONE);
+        } else {
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, texture, 0);
+        }
+        int status = GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER);
+        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) {
+            throw new IllegalStateException("framebuffer status " + status);
+        }
+        return fbo;
+    }
+
+    private static void GM_Release() {
+        if (GM_Depth_Fbo != 0) {
+            GL30.glDeleteFramebuffers(GM_Depth_Fbo);
+        }
+        if (GM_Depth_Tex != 0) {
+            GL11.glDeleteTextures(GM_Depth_Tex);
+        }
+        GM_Depth_Fbo = 0;
+        GM_Depth_Tex = 0;
+    }
+
+    private static void GM_Memory_Clear() {
+        for (int i = 0; i < GM_Error_Max && GL11.glGetError() != GL11.GL_NO_ERROR; i++) {
+        }
+    }
+
+    private static void GM_Memory_Check(String what) {
+        boolean out = false;
+        for (int i = 0; i < GM_Error_Max; i++) {
+            int error = GL11.glGetError();
+            if (error == GL11.GL_NO_ERROR) {
+                break;
+            }
+            out |= error == GL11.GL_OUT_OF_MEMORY;
+        }
+        if (out || GM_Settings.GM_Test("memory")) {
+            throw new IllegalStateException("out of video memory while making the " + what + " images");
+        }
+    }
+
+    private static long GM_Bytes(int width, int height) {
+        long full = (long) width * height * 4L;
+        long fog = (long) GM_Fog_Size * GM_Fog_Size * 8L * 2L;
+        long field = (long) GM_Field.GM_Size * GM_Field.GM_Size * 4L * 2L;
+        return full + fog + field;
+    }
+
+    private static void GM_Resize(int width, int height) {
+        GM_Release();
+        GM_Memory_Clear();
+        GM_W = width;
+        GM_H = height;
+        GM_Depth_Tex = GM_Texture_Make(width, height, true);
+        GM_Depth_Fbo = GM_Fbo_Make(GM_Depth_Tex, true);
+        if (GM_Settings.GM_Test("resize")) {
+            throw new IllegalStateException("test failure: resize");
+        }
+        GM_Clear_Depth(GM_Depth_Fbo);
+        GM_Memory_Check("screen effect");
+        System.out.println("[GL_Java] GM_Environment effects use " + (GM_Bytes(width, height) + 524288L) / 1048576L + " MB of video memory at " + width + "x" + height);
+    }
+
+    @Override
+    public void render() {
+        if (!GM_Ready || GM_Shaders.GM_Off()) {
+            return;
+        }
+        try {
+            GM_Run();
+        } catch (Throwable t) {
+            GM_Shaders.GM_Fail("the fog pass failed", t);
+        }
+    }
+
+    private void GM_Run() {
+        TextureFBO world = Core.getInstance().getOffscreenBuffer(this.frame.player);
+        if (world == null || world.getTexture() == null) {
+            return;
+        }
+        int width = world.getWidth();
+        int height = world.getHeight();
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+        long start = GM_Timing.GM_Cpu_Start();
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        GL11.glPushClientAttrib(GL11.GL_CLIENT_ALL_ATTRIB_BITS);
+        int prevFbo = TextureFBO.getCurrentID();
+        int prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        int prevVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        int prevUnit = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, GM_Viewport);
+        try {
+            if (width != GM_W || height != GM_H || GM_Settings.GM_Test("resize")) {
+                try {
+                    GM_Resize(width, height);
+                } catch (Throwable t) {
+                    GM_Release();
+                    GM_W = 0;
+                    GM_H = 0;
+                    throw t;
+                }
+            }
+            GM_Locations();
+            GM_Used(width, height);
+            GM_Timing.GM_Stamp(GM_Timing.GM_Begin);
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            if (this.frame.depth) {
+                GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, world.getBufferId());
+                GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, GM_Depth_Fbo);
+                GL30.glBlitFramebuffer(GM_X0, GM_Y0, GM_X1, GM_Y1, GM_X0, GM_Y0, GM_X1, GM_Y1, GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Blit);
+            GL11.glDisable(GL11.GL_DEPTH_TEST);
+            GL11.glDisable(GL11.GL_BLEND);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glDisable(GL11.GL_ALPHA_TEST);
+            GL11.glDisable(GL11.GL_CULL_FACE);
+            GL11.glDepthMask(false);
+            GL11.glColorMask(true, true, true, true);
+            GL30.glBindVertexArray(GM_Vao);
+            if (GM_Settings.GM_Test("pass")) {
+                throw new IllegalStateException("test failure: pass");
+            }
+            if (this.frame.fx[GM_Shaders.GM_Fx_Fog] > 0.5f) {
+                GM_Fog_Draw();
+            }
+            GM_Timing.GM_Stamp(GM_Timing.GM_Fog);
+        } finally {
+            GL30.glBindVertexArray(prevVao);
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
+            GL11.glViewport(GM_Viewport[0], GM_Viewport[1], GM_Viewport[2], GM_Viewport[3]);
+            GL20.glUseProgram(prevProgram);
+            GL13.glActiveTexture(prevUnit);
+            GL11.glPopClientAttrib();
+            GL11.glPopAttrib();
+            Texture.lastTextureID = -1;
+            SpriteRenderer.ringBuffer.restoreBoundTextures = true;
+            SpriteRenderer.ringBuffer.restoreVbos = true;
+            GM_Timing.GM_Cpu_Pass(start);
+        }
+    }
+
+    private void GM_Used(int width, int height) {
+        int x0 = Math.max(0, this.frame.usedX - GM_Margin);
+        int y0 = Math.max(0, this.frame.usedY - GM_Margin);
+        int x1 = Math.min(width, this.frame.usedX + this.frame.usedW + GM_Margin);
+        int y1 = Math.min(height, this.frame.usedY + this.frame.usedH + GM_Margin);
+        if (this.frame.usedW <= 0 || this.frame.usedH <= 0 || x1 <= x0 || y1 <= y0) {
+            x0 = 0;
+            y0 = 0;
+            x1 = width;
+            y1 = height;
+        }
+        GM_X0 = x0;
+        GM_Y0 = y0;
+        GM_X1 = x1;
+        GM_Y1 = y1;
+    }
+
+    private static void GM_Clear_Depth(int fbo) {
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
+        GL11.glDepthMask(true);
+        GL11.glClearDepth(1.0);
+        GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+    }
+
+    private void GM_Fog_Draw() {
+        int next = 1 - GM_Fog_Current;
+        boolean reset = GM_Fog_Fresh
+            || Math.abs(this.frame.fogX - GM_Window_X) > GM_Fog_Jump
+            || Math.abs(this.frame.fogY - GM_Window_Y) > GM_Fog_Jump;
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, GM_Fog_Fbo[next]);
+        GL11.glViewport(0, 0, GM_Fog_Size, GM_Fog_Size);
+        GL20.glUseProgram(GM_Sim_Program.getShaderID());
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, GM_Fog_Tex[GM_Fog_Current]);
+        GL20.glUniform1i(GM_Sim_Locs.fogMap, 0);
+        GM_Shaders.GM_Uniforms(this.frame, null, GM_Sim_Locs);
+        GL20.glUniform4f(GM_Sim_Prev, GM_Window_X, GM_Window_Y, 1.0f / GM_Shaders.GM_Fog_Window, GM_Shaders.GM_Fog_Window);
+        GL20.glUniform4f(GM_Sim_Step, this.frame.dt, 0.0f, reset ? 1.0f : 0.0f, GM_Fog_Size);
+        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3);
+        GM_Fog_Current = next;
+        GM_Window_X = this.frame.fogX;
+        GM_Window_Y = this.frame.fogY;
+        GM_Fog_Fresh = false;
+    }
+}

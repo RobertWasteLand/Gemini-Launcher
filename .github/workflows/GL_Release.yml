@@ -1,0 +1,89 @@
+name: GL_Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      GL_Update_From:
+        description: Who the update is from
+        type: choice
+        required: true
+        default: Gemini
+        options:
+          - Gemini
+          - Minidoracat Patcher
+          - Both
+
+permissions:
+  contents: write
+
+concurrency:
+  group: GL_Release
+  cancel-in-progress: false
+
+jobs:
+  GL_Release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: GL_Release_Check
+        shell: bash
+        env:
+          HAS_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is missing. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: GL_Release_Version
+        shell: bash
+        run: |
+          node -e '
+          const fs = require("fs");
+          const path = "src-tauri/tauri.conf.json";
+          const conf = JSON.parse(fs.readFileSync(path, "utf8"));
+          const [major, minor] = conf.version.split(".");
+          conf.version = `${major}.${minor}.${process.env.GITHUB_RUN_NUMBER}`;
+          fs.writeFileSync(path, JSON.stringify(conf, null, 2) + "\n");
+          console.log(`Build ${conf.version}`);
+          '
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: GL_Bundle
+        run: node GL_Java/GL_Bundle.mjs
+
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Gemini (build __VERSION__)
+          releaseBody: |
+            New here? Download the setup .exe below and run it. Already installed? The launcher offers this update the next time you open it.
+
+            Update from: ${{ inputs.GL_Update_From }}
+          releaseDraft: false
+          prerelease: false
+          updaterJsonPreferNsis: true

@@ -1,0 +1,15 @@
+package org.lwjgl.opengl;
+
+public final class GL33 {
+    public static final int GL_TIMESTAMP = 36392;
+
+    public static void glQueryCounter(int id, int target) {
+    }
+
+    public static void glVertexAttribDivisor(int index, int divisor) {
+    }
+
+    public static long glGetQueryObjecti64(int id, int pname) {
+        return 0L;
+    }
+}
